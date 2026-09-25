@@ -1,0 +1,5 @@
+# 설치 파일·임시 파일은 올리지 않아요
+node_modules/
+functions/node_modules/
+.firebase/
+*.log

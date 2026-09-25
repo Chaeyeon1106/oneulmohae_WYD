@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// 오늘모해? — 로그인한 우리 가족만 읽고 쓸 수 있어요.
+// 가입: 아이디/비밀번호로 계정을 만든 뒤, 가족 암호(해시)가 맞아야
+//       roles/<역할> + accounts/<uid> 를 함께 만들 수 있어요. 역할 하나에 계정 하나.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /families/{fam} {
+      function member() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/families/$(fam)/accounts/$(request.auth.uid));
+      }
+      function joinOk(h) {
+        return h is string
+          && h == get(/databases/$(database)/documents/families/$(fam)/private/join).data.hash;
+      }
+
+      // 가족 암호 해시: 아무도 직접 읽거나 쓸 수 없음 (규칙 안에서만 비교)
+      match /private/{doc} {
+        allow read, write: if false;
+      }
+
+      // 역할 자리: 먼저 가입한 사람 것. 바꾸거나 지울 수 없음
+      match /roles/{role} {
+        allow read: if member();
+        allow create: if request.auth != null
+          && role in ['mom', 'dad', 'kid1', 'kid2']
+          && request.resource.data.uid == request.auth.uid
+          && joinOk(request.resource.data.joinHash);
+        allow update, delete: if false;
+      }
+
+      // 계정 → 역할 연결. 같은 가입 요청에서 만든 역할 자리와 짝이 맞아야 함
+      match /accounts/{uid} {
+        allow read: if member();
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && joinOk(request.resource.data.joinHash)
+          && getAfter(/databases/$(database)/documents/families/$(fam)/roles/$(request.resource.data.role)).data.uid == uid;
+        allow update, delete: if false;
+      }
+
+      // 가족 데이터
+      match /{coll}/{docId} {
+        allow read, write: if member()
+          && coll in ['members', 'events', 'notes', 'anniv', 'wake', 'chores', 'choreLog', 'meta', 'pushTokens', 'praises', 'bgm', 'changes'];
+      }
+    }
+  }
+}

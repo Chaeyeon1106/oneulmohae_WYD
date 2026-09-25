@@ -1,0 +1,13 @@
+{
+  "name": "functions",
+  "description": "오늘모해? 가족 알림 (일정·메모·제안이 올라오면 푸시)",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0"
+  },
+  "private": true
+}

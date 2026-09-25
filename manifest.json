@@ -1,0 +1,14 @@
+{
+  "name": "오늘모해?",
+  "short_name": "오늘모해?",
+  "description": "우리 가족 일정·게시판·기념일·기상시간·당번표",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E4EAE8",
+  "theme_color": "#E4EAE8",
+  "icons": [
+    { "src": "images/icon-b-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "images/icon-b-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
