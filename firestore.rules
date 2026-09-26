@@ -43,7 +43,7 @@ service cloud.firestore {
       // 가족 데이터
       match /{coll}/{docId} {
         allow read, write: if member()
-          && coll in ['members', 'events', 'notes', 'anniv', 'wake', 'chores', 'choreLog', 'meta', 'pushTokens', 'praises', 'bgm', 'changes'];
+          && coll in ['members', 'events', 'notes', 'anniv', 'wake', 'chores', 'choreLog', 'meta', 'pushTokens', 'praises', 'bgm', 'changes', 'photos'];
       }
     }
   }

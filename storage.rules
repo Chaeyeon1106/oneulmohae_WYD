@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// 가족 사진: 로그인한 우리 가족(Firestore accounts에 있는 사람)만 보고 올리고 지울 수 있어요.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /families/{fam}/photos/{post}/{file} {
+      function member() {
+        return request.auth != null
+          && firestore.exists(/databases/(default)/documents/families/$(fam)/accounts/$(request.auth.uid));
+      }
+      allow read, delete: if member();
+      allow create: if member()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

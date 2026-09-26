@@ -127,3 +127,22 @@ exports.onFamilyChangeCreated = onDocumentCreated(
     });
   }
 );
+
+// 냉장고 안에 새 사진
+exports.onFamilyPhotoCreated = onDocumentCreated(
+  { document: "families/{fam}/photos/{id}", region: REGION },
+  async (event) => {
+    const p = event.data?.data();
+    if (!p) return;
+    const { fam, id } = event.params;
+    const who = await memberTitle(fam, p.by);
+    const n = Array.isArray(p.imgs) ? p.imgs.length : 1;
+    await notifyFamily(fam, p.by, {
+      title: `📷 ${who}님이 사진을 올렸어요${n > 1 ? ` (${n}장)` : ""}`,
+      body: String(p.text || "냉장고를 열어 보세요").slice(0, 120),
+      type: "photo",
+      id,
+      tag: `photo-${id}`,
+    });
+  }
+);
