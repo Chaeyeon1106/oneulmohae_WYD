@@ -750,6 +750,20 @@ html.fit .tabs{background:color-mix(in srgb, var(--m-ink) 12%, var(--m-bg))}
   background:linear-gradient(180deg,var(--fr-h2),var(--fr1));box-shadow:0 2px 4px -1px rgba(0,0,0,.25), inset 0 0 0 1px var(--fr-edge);transition:transform .18s ease, color .18s}
 .fr-open:hover .plate,.fr-open:focus-visible .plate{transform:translate(-3px,-50%);color:var(--ink)}
 .fr-open:active .plate{transform:translate(-6px,-50%)}
+
+/* 두꺼운 손잡이 안에 세로 "열기" */
+.fridge{padding-right:44px}
+.fr-open{right:6px;top:118px}
+.fr-open .plate{display:none}
+.fr-open .grip{width:26px;height:190px;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(90deg,var(--fr-h1) 0%,var(--fr-h2) 45%,var(--fr-h2) 60%,var(--fr-h1) 100%);
+  box-shadow:0 6px 10px -4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.3), inset -2px 0 3px rgba(0,0,0,.08)}
+.grip-txt{writing-mode:vertical-rl;text-orientation:upright;font-family:var(--fk);font-size:13px;letter-spacing:.35em;color:var(--ink-2);opacity:.85;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.fr-open:hover .grip-txt,.fr-open:focus-visible .grip-txt{color:var(--ink);opacity:1}
+
+/* 두꺼운 손잡이가 생겨도 메모는 두 줄로 */
+.fr-notes{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:22px 12px}
 </style>
 </head>
 <body>
@@ -1444,7 +1458,7 @@ function viewBoard(){
       <div><h2>우리집 냉장고</h2><p>메모는 문에 붙이고, 가족 사진은 손잡이를 당겨 안에서 봐요</p></div>
       <button class="btn pri" data-act="new-note">+ 붙이기</button>
     </div>
-    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 ${nPh}장 보기"><span class="grip"></span><span class="plate">열기</span></button>
+    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 ${nPh}장 보기"><span class="grip"><span class="grip-txt">열기</span></span></button>
     ${notes.length ? `<div class="fr-notes">${notes.map(noteCard).join('')}</div>` : '<p class="empty">아직 붙은 메모가 없어요. 첫 메모를 붙여보세요.</p>'}
   </div></div>`;
 }
