@@ -723,6 +723,24 @@ html.fit .tabs{background:color-mix(in srgb, var(--m-ink) 12%, var(--m-bg))}
 .pp{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--paper-2)}
 .pp img{width:100%;height:100%;object-fit:cover}
 .pp-x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:11px;cursor:pointer}
+
+/* 냉장고 손잡이 (글자 없이) */
+.fr-open{position:absolute;right:3px;top:112px;z-index:3;border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 2px}
+.fr-open .grip{width:12px;height:168px;border-radius:8px;background:linear-gradient(90deg,var(--fr-h1),var(--fr-h2) 55%,var(--fr-h1));box-shadow:0 4px 8px -2px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.25);transition:transform .18s ease}
+.fr-open .mag{position:relative;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:radial-gradient(circle at 35% 30%, #fff 0 12%, var(--m-bg) 55%);box-shadow:0 3px 5px -1px rgba(0,0,0,.35), inset 0 0 0 1.5px var(--m-ink)}
+.fr-open .mag em{position:absolute;top:-6px;right:-8px;font-style:normal;font-family:var(--fx);font-stretch:125%;font-weight:800;font-size:10px;background:var(--bad);color:#fff;border-radius:9px;padding:1px 5px;line-height:1.3}
+.fr-open:hover .grip,.fr-open:focus-visible .grip{transform:translateX(-3px)}
+.fr-open:active .grip{transform:translateX(-6px)}
+@media (prefers-reduced-motion:no-preference){.fr-open .mag{animation:magnudge 3.2s ease-in-out 1s 2}@keyframes magnudge{0%,100%{transform:none}8%{transform:translateX(-4px) rotate(-8deg)}16%{transform:none}}}
+/* 공휴일 */
+.dnrow{display:flex;align-items:baseline;gap:3px;min-width:0}
+.hname{font-family:var(--fk);font-size:9.5px;line-height:1.2;color:var(--sun);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;letter-spacing:-.02em}
+.cell.hol .dn{color:var(--sun)}
+.cell.today.hol .dn,.cell.today .hname{color:var(--sun-on-ink)}
+.ev.hol-row{cursor:default}
+.ev.hol-row .ev-time{color:var(--sun);font-family:var(--fk);font-style:normal}
+.ev.hol-row b{color:var(--sun)}
+@media (max-width:600px){.hname{font-size:9px}}
 </style>
 </head>
 <body>
@@ -1020,6 +1038,24 @@ function av(m, cls=''){
 const avs = (ids, cls='sm') => `<span class="avs">${(ids||[]).map(id => av(mem(id), cls)).join('')}</span>`;
 
 function eventList(){ return Object.entries(S.events).map(([id,e]) => ({id, ...e})); }
+/* ───── 한국 공휴일 ─────
+   2025~2027: 관보 공고 기준 (@hyunbinseo/holidays-kr 데이터). 설·추석·대체공휴일 포함.
+   그 밖의 해: 날짜가 고정된 공휴일만 (음력 공휴일은 새 데이터가 나오면 추가) */
+const HOLIDAYS = {"2025-01-01":"1월 1일","2025-01-27":"임시공휴일","2025-01-28":"설날 전날","2025-01-29":"설날","2025-01-30":"설날 다음 날","2025-03-01":"3ㆍ1절","2025-03-03":"대체공휴일(3ㆍ1절)","2025-05-05":"어린이날, 부처님 오신 날","2025-05-06":"대체공휴일(부처님 오신 날)","2025-06-03":"임시공휴일(대통령선거)","2025-06-06":"현충일","2025-08-15":"광복절","2025-10-03":"개천절","2025-10-05":"추석 전날","2025-10-06":"추석","2025-10-07":"추석 다음 날","2025-10-08":"대체공휴일(추석)","2025-10-09":"한글날","2025-12-25":"기독탄신일","2026-01-01":"1월 1일","2026-02-16":"설날 전날","2026-02-17":"설날","2026-02-18":"설날 다음 날","2026-03-01":"3ㆍ1절","2026-03-02":"대체공휴일(3ㆍ1절)","2026-05-01":"노동절","2026-05-05":"어린이날","2026-05-24":"부처님 오신 날","2026-05-25":"대체공휴일(부처님 오신 날)","2026-06-03":"전국동시지방선거","2026-06-06":"현충일","2026-07-17":"제헌절","2026-08-15":"광복절","2026-08-17":"대체공휴일(광복절)","2026-09-24":"추석 전날","2026-09-25":"추석","2026-09-26":"추석 다음 날","2026-10-03":"개천절","2026-10-05":"대체공휴일(개천절)","2026-10-09":"한글날","2026-12-25":"기독탄신일","2027-01-01":"1월 1일","2027-02-06":"설날 전날","2027-02-07":"설날","2027-02-08":"설날 다음 날","2027-02-09":"대체공휴일(설날)","2027-03-01":"3ㆍ1절","2027-05-01":"노동절","2027-05-03":"대체공휴일(노동절)","2027-05-05":"어린이날","2027-05-13":"부처님 오신 날","2027-06-06":"현충일","2027-07-17":"제헌절","2027-07-19":"대체공휴일(제헌절)","2027-08-15":"광복절","2027-08-16":"대체공휴일(광복절)","2027-09-14":"추석 전날","2027-09-15":"추석","2027-09-16":"추석 다음 날","2027-10-03":"개천절","2027-10-04":"대체공휴일(개천절)","2027-10-09":"한글날","2027-10-11":"대체공휴일(한글날)","2027-12-25":"기독탄신일","2027-12-27":"대체공휴일(기독탄신일)"};
+const FIXED_HOL = {'01-01':'1월 1일','03-01':'3ㆍ1절','05-01':'노동절','05-05':'어린이날','06-06':'현충일','07-17':'제헌절','08-15':'광복절','10-03':'개천절','10-09':'한글날','12-25':'기독탄신일'};
+function holidayOn(ds){
+  if(HOLIDAYS[ds]) return HOLIDAYS[ds];
+  const y = Number(ds.slice(0, 4));
+  return (y < 2025 || y > 2027) ? (FIXED_HOL[ds.slice(5)] || '') : '';
+}
+/* 달력 칸에 들어갈 짧은 이름 */
+function holShort(n){
+  const s = n.split(', ')[0];
+  if(s.startsWith('대체공휴일')) return '대체휴일';
+  if(s.startsWith('임시공휴일')) return s.includes('선거') ? '선거일' : '임시휴일';
+  return ({'설날 전날':'설연휴','설날 다음 날':'설연휴','추석 전날':'추석연휴','추석 다음 날':'추석연휴','3ㆍ1절':'삼일절','1월 1일':'신정',
+    '부처님 오신 날':'석가탄신일','기독탄신일':'성탄절','전국동시지방선거':'지방선거'})[s] || s;
+}
 /* 반복 일정이 ds에 "시작"하는지 */
 function isStart(e, ds){
   if(!e.date || ds < e.date) return false;
@@ -1292,8 +1328,9 @@ function viewCal(){
         html += `<span class="chip ${isFam(sg.e)?'fam':''}" style="${chipPaint(sg.e)}"><span class="e">${h(sg.e.emoji||'')}</span>${h(sg.e.title)}</span>`;
       }
       if(hidden > 0) html += `<span class="chip more">+${hidden}</span>`;
-      const cls = ['cell', ds===ts?'today':'', d.getDay()===0?'sun':''].join(' ');
-      cells += `<button class="${cls}" data-act="pick" data-date="${ds}" aria-label="${fmtMD(d)} 일정 ${here.length}개"><span class="dn">${pad(d.getDate())}</span>${html}</button>`;
+      const hol = holidayOn(ds);
+      const cls = ['cell', ds===ts?'today':'', d.getDay()===0?'sun':'', hol?'hol':''].join(' ');
+      cells += `<button class="${cls}" data-act="pick" data-date="${ds}" aria-label="${fmtMD(d)}${hol ? ' ' + hol : ''} 일정 ${here.length}개"><span class="dnrow"><span class="dn">${pad(d.getDate())}</span>${hol ? `<span class="hname">${h(holShort(hol))}</span>` : ''}</span>${html}</button>`;
     });
   }
 
@@ -1395,10 +1432,10 @@ function viewBoard(){
   return `
   <div class="fridge-wrap"><div class="fridge">
     <div class="fr-top">
-      <div><h2>우리집 냉장고</h2><p>메모는 소식, 제안은 가족 모두 찬성하면 확정돼요</p></div>
+      <div><h2>우리집 냉장고</h2><p>메모는 문에 붙이고, 가족 사진은 손잡이를 당겨 안에서 봐요</p></div>
       <button class="btn pri" data-act="new-note">+ 붙이기</button>
     </div>
-    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 보기"><span class="grip"></span><span class="lbl">📷 열기${nPh ? `<em>${nPh}</em>` : ''}</span></button>
+    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 ${nPh}장 보기"><span class="mag">📷${nPh ? `<em>${nPh}</em>` : ''}</span><span class="grip"></span></button>
     ${notes.length ? `<div class="fr-notes">${notes.map(noteCard).join('')}</div>` : '<p class="empty">아직 붙은 메모가 없어요. 첫 메모를 붙여보세요.</p>'}
   </div></div>`;
 }
@@ -1656,10 +1693,11 @@ const MODALS = {
     const an = annOn(d);
     return `<div class="m-h"><div><h2>${d.getMonth()+1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일</h2><p class="muted small" style="margin:4px 0 0">${ds === ts ? '오늘' : ddFromToday(d)}</p></div>${closeBtn}</div>
       <div class="day-list">
+        ${holidayOn(ds) ? `<div class="ev hol-row"><span class="ev-time">공휴일</span><span class="ev-emo">🇰🇷</span><span class="ev-body"><b>${h(holidayOn(ds))}</b><small>쉬는 날</small></span></div>` : ''}
         ${an.map(a => `<div class="ev an" role="button" tabindex="0" ${a.kind === 'family' ? `data-act="occ-edit" data-k="anniv" data-date="${ds}"` : 'data-act="edit-an"'} data-id="${h(a.id)}"><span class="ev-time">${a.kind === 'family' && a.time ? h(a.time) : '🎉'}</span><span class="ev-emo">${annEmoji(a)}</span><span class="ev-body"><b>${h(annTitle(a))}</b><small>${h(annInfo(a).sub || (ANN_KIND[a.kind]||ANN_KIND.etc).l)}</small></span><span class="an-edit">✎</span></div>`).join('')}
         ${evs.map(e => evCard(withEx(e, occStart(e, ds)), ds)).join('')}
         ${[...annSkippedOn(d).map(a => ['anniv', a]), ...evSkippedOn(ds).map(e => ['event', e])].map(([k, x]) => `<div class="ev skipped"><span class="ev-time">${exOf(x, ds)?.moved ? '옮김' : '취소'}</span><span class="ev-body"><b>${h(k === 'anniv' ? annTitle(x) : x.title)}</b><small>${exOf(x, ds)?.moved ? `→ ${Number(exOf(x, ds).moved.slice(5,7))}/${Number(exOf(x, ds).moved.slice(8))}(${WD[parse(exOf(x, ds).moved).getDay()]})로 옮겼어요` : '이번만 취소됐어요'}</small></span><button class="btn sm" data-act="occ-restore" data-k="${k}" data-id="${h(x.id)}" data-date="${ds}">되돌리기</button></div>`).join('')}
-        ${!an.length && !evs.length ? `<p class="empty">이날은 아직 비어 있어요. 오늘모해?</p>` : ''}
+        ${!an.length && !evs.length && !holidayOn(ds) ? `<p class="empty">이날은 아직 비어 있어요. 오늘모해?</p>` : ''}
       </div>
       <div class="m-foot" style="margin-top:14px"><button class="btn pri" style="width:100%" data-act="new-ev" data-date="${ds}">+ 이날 일정 추가</button></div>`;
   },
@@ -2586,7 +2624,11 @@ function takeGo(g){ if(Store.mode === 'live') goTo(g); else pendingGo = g; }
   }
 })();
 // 글꼴이 늦게 도착하면 달 제목 크기를 다시 맞춤
-if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if(state.tab === 'cal') fitTitle(); });
+if(document.fonts){
+  const refit = () => { if(state.tab === 'cal') fitTitle(); };
+  Promise.all([document.fonts.load('400 60px "Black Han Sans"', '9월'), document.fonts.load('900 60px Archivo', 'SEP')]).then(refit, refit);
+  document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', refit);
+}
 BGM.loadSong().then(() => BGM.start());
 render();
 Store.init();
