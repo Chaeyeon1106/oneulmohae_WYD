@@ -741,6 +741,15 @@ html.fit .tabs{background:color-mix(in srgb, var(--m-ink) 12%, var(--m-bg))}
 .ev.hol-row .ev-time{color:var(--sun);font-family:var(--fk);font-style:normal}
 .ev.hol-row b{color:var(--sun)}
 @media (max-width:600px){.hname{font-size:9px}}
+
+/* 손잡이 + 가로 명판 "열기" (카메라 자석 없이) */
+.fr-open{gap:0;top:120px}
+.fr-open .mag{display:none}
+.fr-open .grip{height:176px}
+.fr-open .plate{position:absolute;top:50%;right:17px;transform:translateY(-50%);font-family:var(--fk);font-size:12.5px;letter-spacing:.12em;color:var(--ink-2);padding:6px 6px 5px 8px;border-radius:6px 2px 2px 6px;white-space:nowrap;
+  background:linear-gradient(180deg,var(--fr-h2),var(--fr1));box-shadow:0 2px 4px -1px rgba(0,0,0,.25), inset 0 0 0 1px var(--fr-edge);transition:transform .18s ease, color .18s}
+.fr-open:hover .plate,.fr-open:focus-visible .plate{transform:translate(-3px,-50%);color:var(--ink)}
+.fr-open:active .plate{transform:translate(-6px,-50%)}
 </style>
 </head>
 <body>
@@ -1435,7 +1444,7 @@ function viewBoard(){
       <div><h2>우리집 냉장고</h2><p>메모는 문에 붙이고, 가족 사진은 손잡이를 당겨 안에서 봐요</p></div>
       <button class="btn pri" data-act="new-note">+ 붙이기</button>
     </div>
-    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 ${nPh}장 보기"><span class="mag">📷${nPh ? `<em>${nPh}</em>` : ''}</span><span class="grip"></span></button>
+    <button class="fr-open" data-act="fridge-open" aria-label="냉장고 문 열기: 사진 ${nPh}장 보기"><span class="grip"></span><span class="plate">열기</span></button>
     ${notes.length ? `<div class="fr-notes">${notes.map(noteCard).join('')}</div>` : '<p class="empty">아직 붙은 메모가 없어요. 첫 메모를 붙여보세요.</p>'}
   </div></div>`;
 }
