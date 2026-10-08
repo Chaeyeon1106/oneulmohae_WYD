@@ -1,6 +1,6 @@
 # 오늘모해?
 
-우리 가족 일정 공유 웹앱 — 캘린더 · 냉장고 게시판 · 기념일/가족 고정 일정 · 내일 아침 기상 · 칭찬합니다
+우리 가족 일정 공유 웹앱 — 캘린더 · 냉장고 게시판 · 기념일/가족 고정 일정 · 오늘 저녁 집밥 · 칭찬합니다
 
 - 배포: https://oneulmohae-family.web.app (Firebase Hosting)
 - 데이터: Cloud Firestore (서울), 로그인한 가족만 접근 (`firestore.rules`)

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>오늘모해?</title>
-<meta name="description" content="우리 가족 일정·게시판·기념일·기상시간·당번표">
+<meta name="description" content="우리 가족 일정·게시판·기념일·저녁 식사·당번표">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="images/icon-b-180.png">
 <link rel="icon" type="image/png" href="images/icon-b-192.png">
@@ -498,12 +498,11 @@ html.fit .poster{padding-top:16px}
 .stamp{position:absolute;right:8px;top:30px;font-family:var(--fk);font-size:22px;color:#D8333A;border:3px solid #D8333A;border-radius:6px;padding:0 8px;transform:rotate(-14deg);opacity:.9;letter-spacing:.1em;background:rgba(255,255,255,.15)}
 @media (prefers-reduced-motion:no-preference){.stamp{animation:stampin .35s cubic-bezier(.3,1.6,.5,1)}@keyframes stampin{from{transform:rotate(-14deg) scale(2.2);opacity:0}}}
 #modal .composer textarea{min-height:120px}
-/* 기상 */
+/* 오늘 저녁 */
 .wk2{display:grid}
-.wk2-row{display:grid;grid-template-columns:auto minmax(0,1fr) 108px 86px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.wk2-row{display:grid;grid-template-columns:auto minmax(0,1fr) 92px 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .wk2-row:first-child{padding-top:0}
 .wk2-row .nm{font-family:var(--fk);font-weight:400;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wk2-row input{padding:6px 6px;font-size:15px;font-family:var(--fx);font-stretch:110%;font-weight:700;text-align:center}
 .bell{border:1.5px solid var(--line);background:var(--paper);border-radius:3px;height:36px;cursor:pointer;font-family:var(--fk);font-size:12.5px;color:var(--ink-2);white-space:nowrap}
 .bell.on{background:var(--m-bg);color:var(--m-text);border-color:var(--m-bg)}
 /* 칭찬 */
@@ -543,9 +542,9 @@ html.fit .tabs{border-top:0;height:calc(62px + env(safe-area-inset-bottom,0px))}
 html.fit .wrap{padding-bottom:calc(62px + env(safe-area-inset-bottom,0px))}
 @media (min-width:760px){html.fit .tabs{height:auto;border-top:1.5px solid var(--m-line)}html.fit .wrap{padding-bottom:0}}
 
-/* 기상: 남의 줄은 보기만 */
-.wk2-row input:disabled{opacity:1;background:var(--paper-2);color:var(--ink-2);border-color:transparent}
+/* 저녁: 남의 줄은 보기만 */
 .bell:disabled{cursor:default;opacity:.75}
+.bell.on:disabled{opacity:1}
 .wk2-row .nm small{font-family:var(--fb);font-size:11px;color:var(--m-text);background:var(--m-bg);padding:0 5px;border-radius:2px;vertical-align:2px}
 
 /* 맨 위 띠: 왼쪽 앱 아이콘, 가운데 날짜 — 글자 위가 잘리지 않게 여유 */
@@ -1262,7 +1261,7 @@ const ICONS = {
   set:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
 };
 function renderTabs(){
-  const T = [['cal','캘린더'],['board','게시판'],['home','기념일·기상'],['set','설정']];
+  const T = [['cal','캘린더'],['board','게시판'],['home','기념일·저녁'],['set','설정']];
   $('#tabs').innerHTML = T.map(([k,l]) => `<button class="tab ${state.tab===k?'on':''}" data-act="tab" data-v="${k}" ${state.tab===k?'aria-current="page"':''}>${ICONS[k]}<span>${l}</span></button>`).join('');
 }
 
@@ -1495,14 +1494,16 @@ function viewInside(){
 }
 
 
-/* ───── 기념일·기상 ───── */
+/* ───── 기념일·저녁 ───── */
+/* 오늘 저녁: 예전 '기상' 자리. 보안 규칙을 다시 배포하지 않으려고 wake 컬렉션을 그대로 씀
+   (문서 id = 가족 id, {forDate: 오늘, dinner: 'home'|'out'}) */
+const DINNER = {home:'🍚 집에서', out:'🍜 먹고 와요'};
 function viewHome(){
-  const t = today(), tm = addDays(t, 1), tms = ymd(tm);
+  const t = today(), ts = ymd(t);
   const ms = members();
-  const wake = ms.map(m => { const w = S.wake[m.id]; const ok = w && w.forDate === tms; return {m, time: ok ? (w.time||'') : '', wakeMe: ok ? !!w.wakeMe : false}; });
-  const set = wake.filter(w => w.time).sort((a,b) => a.time.localeCompare(b.time));
-  const needs = wake.filter(w => w.wakeMe);
-  const first = set[0];
+  const dinner = ms.map(m => { const w = S.wake[m.id]; return {m, v: w && w.forDate === ts && DINNER[w.dinner] ? w.dinner : ''}; });
+  const home = dinner.filter(d => d.v === 'home'), out = dinner.filter(d => d.v === 'out'), yet = dinner.filter(d => !d.v);
+  const names = l => l.map(d => `<b>${h(d.m.title)}</b>`).join(', ');
 
   const anns = annList().map(a => ({a, ...annInfo(a)})).sort((p,q) => p.dd - q.dd);
   const praises = praiseList().slice(0, state.praiseAll ? 200 : 6);
@@ -1525,18 +1526,18 @@ function viewHome(){
     </section>
 
     <section class="card">
-      <div class="sec-h"><h2>내일 아침 기상</h2><p>${fmtMD(tm)} · 내 시간만 적을 수 있어요. 깨워줘야 하면 🔔를 눌러요</p></div>
+      <div class="sec-h"><h2>오늘 저녁</h2><p>${fmtMD(t)} · 내 것만 고를 수 있어요. 한 번 더 누르면 취소돼요</p></div>
       <div class="wk2">
-        ${wake.map(({m, time, wakeMe}) => `
+        ${dinner.map(({m, v}) => `
           <div class="wk2-row">
             ${av(m)}
             <b class="nm">${h(m.title)}${m.id === ME ? ' <small>나</small>' : ''}</b>
-            <input type="time" id="wk-${m.id}" data-wake="${m.id}" value="${h(time)}" aria-label="${h(m.title)} 기상 시간" ${m.id === ME ? '' : 'disabled'}>
-            <button class="bell ${wakeMe?'on':''}" data-act="wake-tg" data-id="${m.id}" aria-pressed="${wakeMe}" aria-label="${h(m.title)} 깨워주기" ${m.id === ME ? '' : 'disabled'}>${wakeMe ? '🔔 깨워줘' : '😎 알아서'}</button>
+            ${Object.entries(DINNER).map(([k, l]) => `<button class="bell ${v===k?'on':''}" data-act="dinner" data-id="${m.id}" data-v="${k}" aria-pressed="${v===k}" aria-label="${h(m.title)} 저녁 ${l}" ${m.id === ME ? '' : 'disabled'}>${l}</button>`).join('')}
           </div>`).join('')}
       </div>
-      <div class="callout">${first ? `⏰ 제일 먼저: <b>${h(first.m.title)}</b> ${fmtTime(first.time)}` : '아직 아무도 시간을 안 적었어요.'}
-        ${needs.length ? `<br>🔔 깨워줄 사람: ${needs.map(w => `<b>${h(w.m.title)}</b>${w.time ? ' ' + fmtTime(w.time) : ''}`).join(', ')}` : ''}</div>
+      <div class="callout">${home.length ? `🍚 집에서 먹어요: ${names(home)} (${home.length}명)` : '🍚 아직 집에서 먹는다는 사람이 없어요.'}
+        ${out.length ? `<br>🍜 먹고 와요: ${names(out)}` : ''}
+        ${yet.length && yet.length < ms.length ? `<br>🤔 아직 몰라요: ${names(yet)}` : ''}</div>
     </section>
 
     <section class="card span2">
@@ -2141,11 +2142,11 @@ const ACTIONS = {
 
   'del-an'(el){ el.dataset.orig = '삭제'; if(!arm(el)) return; Store.del('anniv', el.dataset.id); state.modal = null; render(); toast('지웠어요'); },
 
-  'wake-tg'(el){
+  'dinner'(el){
     if(el.dataset.id !== ME) return;
-    const id = el.dataset.id; const tms = ymd(addDays(today(), 1));
-    const w = S.wake[id]; const ok = w && w.forDate === tms;
-    Store.set('wake', id, {forDate:tms, time: ok ? (w.time||'') : ($('#wk-'+id)?.value || ''), wakeMe: !(ok && w.wakeMe), at:Date.now()});
+    const id = el.dataset.id, ts = ymd(today()), v = el.dataset.v;
+    const w = S.wake[id]; const cur = w && w.forDate === ts ? w.dinner : '';
+    Store.set('wake', id, {forDate:ts, dinner: cur === v ? '' : v, at:Date.now()});
   },
 
   'new-ch'(){ openModal({kind:'chEdit'}); },
@@ -2231,13 +2232,6 @@ document.addEventListener('change', async e => {
     const x = $('#f-repx'), dw = $('#f-days-wrap');
     if(x) x.hidden = t.value === 'none';
     if(dw) dw.hidden = t.value !== 'weekly';
-    return;
-  }
-  if(t.dataset.wake){
-    if(t.dataset.wake !== ME) return;
-    const id = t.dataset.wake, tms = ymd(addDays(today(), 1));
-    const w = S.wake[id]; const ok = w && w.forDate === tms;
-    Store.set('wake', id, {forDate:tms, time:t.value || '', wakeMe: ok ? !!w.wakeMe : false, at:Date.now()});
     return;
   }
   if(t.id === 'ph-files' && state.modal && state.modal.kind === 'phNew'){
