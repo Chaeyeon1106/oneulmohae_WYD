@@ -16,6 +16,9 @@
 | `manifest.json`, `images/` | 홈 화면 앱 설정·아이콘 |
 
 ## 배포
+`main` 브랜치에 반영되면 GitHub Actions가 Hosting을 자동 배포합니다 (`.github/workflows/firebase-hosting-deploy.yml`, Secret `FIREBASE_SERVICE_ACCOUNT_ONEULMOHAE_FAMILY` 필요).
+Functions·보안 규칙은 직접 배포:
+
 ```bash
 firebase deploy --only hosting
 firebase deploy --only functions

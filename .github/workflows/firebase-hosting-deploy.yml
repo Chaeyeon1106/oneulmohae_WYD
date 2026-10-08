@@ -1,0 +1,20 @@
+# main 브랜치에 반영되면 Firebase Hosting(https://oneulmohae-family.web.app)에 자동 배포
+name: Firebase Hosting 배포
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ONEULMOHAE_FAMILY }}
+          projectId: oneulmohae-family
+          channelId: live
