@@ -128,7 +128,7 @@ main{margin-top:18px}
 .fld > span{font-family:var(--fk);font-size:13.5px;color:var(--ink-2);letter-spacing:.04em}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-input[type=text],input[type=date],input[type=time],input[type=number],select,textarea{
+input[type=text],input[type=date],input[type=time],input[type=month],input[type=number],select,textarea{
   width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:4px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);min-width:0}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink)}
 textarea{resize:vertical;min-height:70px}
@@ -279,6 +279,12 @@ textarea{resize:vertical;min-height:70px}
 .ann{display:grid}
 .an-row{display:flex;align-items:center;gap:12px;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px;cursor:pointer;text-align:left;width:100%}
 .an-row:hover{background:var(--paper-2)}
+.host-box{border:1.5px solid var(--m-bg);border-left-width:6px;border-radius:2px;padding:10px 12px;margin:0 0 14px}
+.host-h{display:flex;align-items:center;gap:8px;font-family:var(--fk);font-size:16px}
+.host-h b{font-weight:400}
+.host-h small{font-family:var(--fb);font-size:11px;color:var(--m-text);background:var(--m-bg);padding:0 5px;border-radius:2px}
+.host-box .fld{margin:10px 0 8px}
+.host-menu{margin:8px 0 0;font-family:var(--fh);font-size:20px;line-height:1.3;white-space:pre-wrap;word-break:break-word}
 .an-more{border:0;background:none;padding:11px 2px 0;cursor:pointer;font-family:var(--fk);font-size:14px;color:var(--ink-2);text-align:left}
 .an-row .e{font-size:22px;width:30px;text-align:center}
 .an-row .b{flex:1;min-width:0}
@@ -567,8 +573,8 @@ html.fit .top{padding-block:12px 10px}
 .chip .dots i{width:7px;height:7px;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
 
 /* 아이폰 날짜·시간 칸이 옆으로 삐져나가지 않게 */
-input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:44px;text-align:left;line-height:1.3}
-input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date],input[type=time],input[type=month]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:44px;text-align:left;line-height:1.3}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:left;margin:0}
 .row2,.row3{grid-template-columns:repeat(var(--cols,2),minmax(0,1fr))}
 .row3{--cols:3}
 .fld > span em{font-style:normal;font-family:var(--fb);font-size:11.5px;letter-spacing:0;color:var(--ink-3);margin-left:2px}
@@ -1160,6 +1166,19 @@ function famRuleLabel(a){
     : a.rule === 'nth' ? `매달 ${Number(a.nth) === -1 ? '마지막' : a.nth + '번째'} ${w}` : `매년 ${a.month}월 ${a.day}일`;
   return s + (a.time ? ' · ' + fmtTime(a.time) : '');
 }
+/* 가족 고정 일정 주최자: hostRot 순서대로 hostStart 달부터 한 달씩 돌아가며 */
+const annOrigin = (a, ds) => { const o = exOf(a, ds); return o && o.add ? o.from : ds; };   // 옮긴 회차는 원래 날짜 기준
+function annHost(a, ds){
+  const rot = (a.hostRot || []).filter(id => mem(id)); if(!rot.length || !a.hostStart) return null;
+  const d = parse(annOrigin(a, ds)), [y, m] = a.hostStart.split('-').map(Number);
+  const i = (d.getFullYear() * 12 + d.getMonth()) - (y * 12 + m - 1);
+  return mem(rot[((i % rot.length) + rot.length) % rot.length]);
+}
+const annMenu = (a, ds) => (a.menus && a.menus[annOrigin(a, ds)]) || null;
+function famSub(a, ds){
+  const host = annHost(a, ds), menu = annMenu(a, ds);
+  return famRuleLabel(a) + (host ? ` · 주최 ${host.title}` : '') + (menu && menu.text ? ` · 🍽️ ${menu.text}` : '');
+}
 function annTitle(a){
   if(a.title) return a.title;
   const m = mem(a.memberId);
@@ -1169,7 +1188,7 @@ function annTitle(a){
 const annEmoji = a => (ANN_KIND[a.kind] || ANN_KIND.etc).e;
 function annInfo(a){
   const t = today(), n = annNext(a), dd = dayDiff(t, n);
-  if(a.kind === 'family') return {next:n, dd, sub: famRuleLabel(a)};
+  if(a.kind === 'family') return {next:n, dd, sub: famSub(a, ymd(n))};
   let sub = '';
   const y = Number(a.year);
   if(y > 1900){
@@ -1668,7 +1687,15 @@ const MODALS = {
     if(!base) return `<div class="m-h"><h2>지워진 일정이에요</h2>${closeBtn}</div>`;
     const cur = withEx(base, date), d = parse(date);
     const title = k === 'anniv' ? annTitle(cur) : cur.title;
+    const host = k === 'anniv' ? annHost(base, date) : null, menu = host ? annMenu(base, date) : null, by = menu && mem(menu.by);
     return `<div class="m-h"><div><h2>${d.getMonth()+1}월 ${d.getDate()}일 (${WD[d.getDay()]}) 이 날만 수정</h2><p class="muted small" style="margin:4px 0 0">${h(k === 'anniv' ? famRuleLabel(base) : repeatLabel(base))} · 다른 날은 그대로예요</p></div>${closeBtn}</div>
+      ${host ? `<div class="host-box">
+        <div class="host-h">${av(host,'sm')}<b>이번 주최: ${h(host.title)}</b>${host.id === ME ? ' <small>나</small>' : ''}</div>
+        ${host.id === ME ? `<label class="fld"><span>메뉴 제안</span><textarea id="occ-menu" data-draft maxlength="100" rows="2" placeholder="예) 삼겹살 + 냉면 어때?">${h(menu ? menu.text : '')}</textarea></label>
+          <button class="btn sm pri" data-act="menu-save">메뉴 올리기</button>`
+        : menu && menu.text ? `<p class="host-menu">🍽️ ${h(menu.text)}</p>` : `<p class="muted small" style="margin:6px 0 0">${h(host.title)}이(가) 아직 메뉴를 안 정했어요.</p>`}
+        ${menu && menu.text ? `<p class="muted small" style="margin:4px 0 0">${h(by ? by.title : '')} · ${ago(menu.at || Date.now())}</p>` : ''}
+      </div>` : ''}
       <label class="fld"><span>제목</span><input type="text" id="occ-title" data-draft maxlength="40" value="${h(title)}"></label>
       <div class="row2">
         <label class="fld"><span>날짜 <em>(옮기려면 바꾸기)</em></span><input type="date" id="occ-date" data-draft value="${h(date)}"></label>
@@ -1721,7 +1748,7 @@ const MODALS = {
     return `<div class="m-h"><div><h2>${d.getMonth()+1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일</h2><p class="muted small" style="margin:4px 0 0">${ds === ts ? '오늘' : ddFromToday(d)}</p></div>${closeBtn}</div>
       <div class="day-list">
         ${holidayOn(ds) ? `<div class="ev hol-row"><span class="ev-time">공휴일</span><span class="ev-emo">🇰🇷</span><span class="ev-body"><b>${h(holidayOn(ds))}</b><small>쉬는 날</small></span></div>` : ''}
-        ${an.map(a => `<div class="ev an" role="button" tabindex="0" ${a.kind === 'family' ? `data-act="occ-edit" data-k="anniv" data-date="${ds}"` : 'data-act="edit-an"'} data-id="${h(a.id)}"><span class="ev-time">${a.kind === 'family' && a.time ? h(a.time) : '🎉'}</span><span class="ev-emo">${annEmoji(a)}</span><span class="ev-body"><b>${h(annTitle(a))}</b><small>${h(annInfo(a).sub || (ANN_KIND[a.kind]||ANN_KIND.etc).l)}</small></span><span class="an-edit">✎</span></div>`).join('')}
+        ${an.map(a => `<div class="ev an" role="button" tabindex="0" ${a.kind === 'family' ? `data-act="occ-edit" data-k="anniv" data-date="${ds}"` : 'data-act="edit-an"'} data-id="${h(a.id)}"><span class="ev-time">${a.kind === 'family' && a.time ? h(a.time) : '🎉'}</span><span class="ev-emo">${annEmoji(a)}</span><span class="ev-body"><b>${h(annTitle(a))}</b><small>${h(a.kind === 'family' ? famSub(S.anniv[a.id] || a, ds) : annInfo(a).sub || (ANN_KIND[a.kind]||ANN_KIND.etc).l)}</small></span><span class="an-edit">✎</span></div>`).join('')}
         ${evs.map(e => evCard(withEx(e, occStart(e, ds)), ds)).join('')}
         ${[...annSkippedOn(d).map(a => ['anniv', a]), ...evSkippedOn(ds).map(e => ['event', e])].map(([k, x]) => `<div class="ev skipped"><span class="ev-time">${exOf(x, ds)?.moved ? '옮김' : '취소'}</span><span class="ev-body"><b>${h(k === 'anniv' ? annTitle(x) : x.title)}</b><small>${exOf(x, ds)?.moved ? `→ ${Number(exOf(x, ds).moved.slice(5,7))}/${Number(exOf(x, ds).moved.slice(8))}(${WD[parse(exOf(x, ds).moved).getDay()]})로 옮겼어요` : '이번만 취소됐어요'}</small></span><button class="btn sm" data-act="occ-restore" data-k="${k}" data-id="${h(x.id)}" data-date="${ds}">되돌리기</button></div>`).join('')}
         ${!an.length && !evs.length && !holidayOn(ds) ? `<p class="empty">이날은 아직 비어 있어요. 오늘모해?</p>` : ''}
@@ -1796,6 +1823,7 @@ const MODALS = {
     const a = id ? S.anniv[id] || {} : {kind:'birthday', month:today().getMonth()+1, day:today().getDate()};
     if(!m.k) m.k = a.kind || 'birthday';
     if(!m.rule) m.rule = a.rule || 'nth';
+    if(!m.rot) m.rot = a.hostRot ? [...a.hostRot] : [];
     const kind = m.k, fam = kind === 'family';
     const sel = (sid, arr, cur) => `<select id="${sid}" data-draft>${arr.map(([v,l]) => `<option value="${v}" ${String(cur)===String(v)?'selected':''}>${l}</option>`).join('')}</select>`;
     const wdays = [0,1,2,3,4,5,6].map(d => [d, WD[d] + '요일']);
@@ -1813,7 +1841,10 @@ const MODALS = {
         <label class="fld"><span>이름</span><input type="text" id="a-title" data-draft maxlength="30" value="${h(a.title||'')}" placeholder="예) 가족회식, 가족 영화의 날"></label>
         <label class="fld"><span>언제마다?</span><select id="a-rule">${Object.entries(FAM_RULES).map(([k,l]) => `<option value="${k}" ${m.rule===k?'selected':''}>${l}</option>`).join('')}</select></label>
         ${ruleFields[m.rule]}
-        <label class="fld"><span>시간 <em>(선택)</em></span><input type="time" id="a-time" data-draft value="${h(a.time||'')}"></label>`
+        <label class="fld"><span>시간 <em>(선택)</em></span><input type="time" id="a-time" data-draft value="${h(a.time||'')}"></label>
+        <div class="fld"><span>주최자 순서 <em>(누른 순서대로 한 달씩 · 선택)</em></span><div class="picks" id="c-rot">${rotPicks(m.rot)}</div></div>
+        <label class="fld"><span>1번 주최자가 맡는 달</span><input type="month" id="a-hstart" data-draft value="${h(a.hostStart || ymd(today()).slice(0,7))}"></label>
+        <p class="muted small" style="margin:-4px 0 14px">그다음 달부터 순서대로 자동으로 돌아가요. 주최자는 그 날 일정을 눌러 메뉴를 제안할 수 있어요.</p>`
       : `
         <label class="fld"><span>누구? (선택)</span>${sel('a-mem', [['', '선택 안 함'], ...members().map(x => [x.id, x.title])], a.memberId || '')}</label>
         <label class="fld"><span>이름 (비우면 "엄마 생일"처럼 자동)</span><input type="text" id="a-title" data-draft maxlength="30" value="${h(a.title||'')}" placeholder="예) 할머니 생신, 결혼기념일"></label>
@@ -2118,6 +2149,12 @@ const ACTIONS = {
     logChange({kind:k, refId:id, date, title: k === 'anniv' ? annTitle(base) : base.title, time: base.time || '', restore:true});
     render(); toast('다시 원래대로 돌렸어요');
   },
+  async 'menu-save'(){
+    const {id, date} = state.modal, a = S.anniv[id]; if(!a || annHost(a, date)?.id !== ME) return;
+    const text = $('#occ-menu').value.trim();
+    await Store.update('anniv', id, {menus: {[annOrigin(a, date)]: text ? {text, by: ME, at: Date.now()} : null}});
+    renderModal(); toast(text ? '메뉴를 올렸어요 🍽️' : '메뉴를 지웠어요');
+  },
   'edit-an'(el){ openModal({kind:'anEdit', id:el.dataset.id}); },
   'seg-pick'(el){ $$('button', el.parentElement).forEach(b => b.classList.toggle('on', b === el)); },
   'an-kind'(el){ state.modal.k = el.dataset.v; renderModal(); },
@@ -2129,7 +2166,9 @@ const ACTIONS = {
     if(kind === 'family'){
       if(!title){ toast('이름을 적어주세요 (예: 가족회식)'); $('#a-title').focus(); return; }
       const rule = state.modal.rule || 'nth', v = sid => $('#' + sid) ? Number($('#' + sid).value) : null;
-      data = {kind, title, rule, wday: v('a-wday'), mday: v('a-mday'), nth: v('a-nth'), month: v('a-month'), day: v('a-day'), time: $('#a-time').value || '', memberId: '', year: null};
+      const hostRot = [...(state.modal.rot || [])], hostStart = /^\d{4}-\d{2}$/.test($('#a-hstart')?.value || '') ? $('#a-hstart').value : '';
+      if(hostRot.length && !hostStart){ toast('1번 주최자가 맡는 달을 골라주세요'); return; }
+      data = {kind, title, rule, wday: v('a-wday'), mday: v('a-mday'), nth: v('a-nth'), month: v('a-month'), day: v('a-day'), time: $('#a-time').value || '', memberId: '', year: null, hostRot, hostStart};
       if(rule === 'yearly' && data.day > new Date(2024, data.month, 0).getDate()){ toast(`${data.month}월은 ${new Date(2024, data.month, 0).getDate()}일까지 있어요`); return; }
     } else {
       const memberId = $('#a-mem').value || '';
