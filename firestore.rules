@@ -40,6 +40,14 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // 나만 보기 일정: 만든 사람(owner = 로그인 계정)만 읽고 쓸 수 있음
+      match /mine/{docId} {
+        allow read, delete: if member() && resource.data.owner == request.auth.uid;
+        allow create: if member() && request.resource.data.owner == request.auth.uid;
+        allow update: if member() && resource.data.owner == request.auth.uid
+          && request.resource.data.owner == request.auth.uid;
+      }
+
       // 가족 데이터
       match /{coll}/{docId} {
         allow read, write: if member()

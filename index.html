@@ -827,7 +827,7 @@ const NOTE_COLORS = ['yellow','pink','mint','sky'];
 const NOTE_MAG = {yellow:'#E0444A', pink:'#3D7FE0', mint:'#E08A0B', sky:'#1F9E62'};
 const ANN_KIND = {birthday:{l:'생일', e:'🎂'}, anniv:{l:'기념일', e:'💍'}, family:{l:'가족 고정', e:'🍽️'}, etc:{l:'기타', e:'⭐'}};
 const FAM_RULES = {weekly:'매주 ○요일', mday:'매달 ○일', nth:'매달 ○번째 ○요일', yearly:'매년 ○월 ○일'};
-const COLLS = ['members','events','notes','anniv','wake','chores','choreLog','meta','praises','photos'];
+const COLLS = ['members','events','notes','anniv','wake','chores','choreLog','meta','praises','photos','mine'];
 const LKEY = 'tmh_data_v1';
 
 /* ───────── 저장소: db(실시간 공유) → 없으면 이 기기 localStorage ───────── */
@@ -917,7 +917,11 @@ const Store = {
   subscribe(){
     const {F, db} = this.fs;
     this.unsubs.forEach(u => u()); this.unsubs = [];
-    COLLS.forEach(c => {
+    // mine = 나만 보기 일정: 보안 규칙상 내 것(owner = 내 계정)만 읽을 수 있어요
+    if(this.user) this.unsubs.push(F.onSnapshot(F.query(F.collection(db, 'families', FAM, 'mine'), F.where('owner', '==', this.user.uid)), snap => {
+      const o = {}; snap.forEach(d => { o[d.id] = d.data(); }); S.mine = o; schedule();
+    }, err => console.warn('firestore mine', err)));
+    COLLS.filter(c => c !== 'mine').forEach(c => {
       this.unsubs.push(F.onSnapshot(F.collection(db, 'families', FAM, c), snap => {
         const o = {}; snap.forEach(d => { o[d.id] = d.data(); });
         S[c] = o; schedule();
@@ -1066,7 +1070,11 @@ function av(m, cls=''){
 }
 const avs = (ids, cls='sm') => `<span class="avs">${(ids||[]).map(id => av(mem(id), cls)).join('')}</span>`;
 
-function eventList(){ return Object.entries(S.events).map(([id,e]) => ({id, ...e})); }
+function eventList(){ return [...Object.entries(S.events).map(([id,e]) => ({id, ...e})), ...Object.entries(S.mine || {}).map(([id,e]) => ({id, ...e, priv:true}))]; }
+/* 나만 보기 일정은 'mine' 컬렉션에 따로 (가족 알림 서버가 보지 않는 곳) */
+const evColl = id => S.mine && S.mine[id] ? 'mine' : 'events';
+const evGet = id => S.events[id] || (S.mine && S.mine[id]) || null;
+const lockT = e => (e.priv || (S.mine && S.mine[e.id]) ? '🔒 ' : '') + (e.title || '');
 /* ───── 한국 공휴일 ─────
    2025~2027: 관보 공고 기준 (@hyunbinseo/holidays-kr 데이터). 설·추석·대체공휴일 포함.
    그 밖의 해: 날짜가 고정된 공휴일만 (음력 공휴일은 새 데이터가 나오면 추가) */
@@ -1364,10 +1372,10 @@ function viewCal(){
         if(sg.multi){
           if(i !== sg.a){ html += '<span class="chip gap"></span>'; continue; }
           const span = sg.b - sg.a + 1, ex = (sg.cl ? 2 : 0) + (sg.cr ? 3 : 0);
-          html += `<span class="chip bar ${sg.cl?'cl':''} ${sg.cr?'cr':''} ${isFam(sg.e)?'fam':''}" style="${chipPaint(sg.e, true)};--span:${span};--ex:${ex}px">${sg.cl ? '◂ ' : `<span class="e">${h(sg.e.emoji||'')}</span>`}${h(sg.e.title)}${barDots(sg.e)}</span>`;
+          html += `<span class="chip bar ${sg.cl?'cl':''} ${sg.cr?'cr':''} ${isFam(sg.e)?'fam':''}" style="${chipPaint(sg.e, true)};--span:${span};--ex:${ex}px">${sg.cl ? '◂ ' : `<span class="e">${h(sg.e.emoji||'')}</span>`}${h(lockT(sg.e))}${barDots(sg.e)}</span>`;
           continue;
         }
-        html += `<span class="chip ${isFam(sg.e)?'fam':''}" style="${chipPaint(sg.e)}"><span class="e">${h(sg.e.emoji||'')}</span>${h(sg.e.title)}</span>`;
+        html += `<span class="chip ${isFam(sg.e)?'fam':''}" style="${chipPaint(sg.e)}"><span class="e">${h(sg.e.emoji||'')}</span>${h(lockT(sg.e))}</span>`;
       }
       if(hidden > 0) html += `<span class="chip more">+${hidden}</span>`;
       const hol = holidayOn(ds);
@@ -1425,7 +1433,7 @@ function evCard(e, ds){
   return `<div class="ev" role="button" tabindex="0" style="--c:${evColor(e)}" data-act="open-ev" data-id="${h(e.id)}">
     <span class="ev-time">${e.time ? h(e.time) : '종일'}</span>
     <span class="ev-who">${avs(e.members)}</span>
-    <span class="ev-body"><b>${h(e.title)}</b>${(e.repeat && e.repeat !== 'none') || extra || span ? `<small>${span ? `<span class="tag" style="margin-left:0">${span}</span> ` : ''}${e.repeat && e.repeat !== 'none' ? `<span class="tag" style="margin-left:0">${repeatLabel(e)}</span> ` : ''}${extra}</small>` : ''}</span>
+    <span class="ev-body"><b>${h(lockT(e))}</b>${(e.repeat && e.repeat !== 'none') || extra || span ? `<small>${span ? `<span class="tag" style="margin-left:0">${span}</span> ` : ''}${e.repeat && e.repeat !== 'none' ? `<span class="tag" style="margin-left:0">${repeatLabel(e)}</span> ` : ''}${extra}</small>` : ''}</span>
     <button class="ev-x" data-act="ev-x" data-id="${h(e.id)}" aria-label="${h(e.title)} 삭제">✕</button>
   </div>`;
 }
@@ -1683,7 +1691,7 @@ const MODALS = {
       <div class="cm-in"><input type="text" id="phc-text" data-draft maxlength="200" placeholder="댓글 달기" aria-label="댓글"><button class="btn pri" data-act="phc-add" data-id="${h(id)}">등록</button></div>`;
   },
   occ({k, id, date}){
-    const base = k === 'anniv' ? S.anniv[id] : S.events[id];
+    const base = k === 'anniv' ? S.anniv[id] : evGet(id);
     if(!base) return `<div class="m-h"><h2>지워진 일정이에요</h2>${closeBtn}</div>`;
     const cur = withEx(base, date), d = parse(date);
     const title = k === 'anniv' ? annTitle(cur) : cur.title;
@@ -1701,7 +1709,7 @@ const MODALS = {
         <label class="fld"><span>날짜 <em>(옮기려면 바꾸기)</em></span><input type="date" id="occ-date" data-draft value="${h(date)}"></label>
         <label class="fld"><span>시간 <em>(비우면 종일)</em></span><input type="time" id="occ-time" data-draft value="${h(cur.time || '')}"></label>
       </div>
-      <p class="muted small" style="margin:-2px 0 14px">바꾸면 가족에게 알림이 가요.</p>
+      <p class="muted small" style="margin:-2px 0 14px">${k !== 'anniv' && S.mine && S.mine[id] ? '🔒 나만 보는 일정이라 알림은 안 가요.' : '바꾸면 가족에게 알림이 가요.'}</p>
       <div class="m-foot"><button class="btn danger left" data-act="occ-skip">이번만 취소</button><button class="btn" data-act="${k === 'anniv' ? 'edit-an' : 'edit-ev'}" data-id="${h(id)}">전체 수정</button><button class="btn pri" data-act="occ-save">저장</button></div>`;
   },
   photo({id}){
@@ -1770,13 +1778,13 @@ const MODALS = {
   },
 
   ev({id, date}){
-    const e0 = S.events[id];
+    const e0 = evGet(id);
     const e = e0 && withEx(e0, date && occStart(e0, date));
     if(!e) return `<div class="m-h"><h2>지워진 일정이에요</h2>${closeBtn}</div>`;
     const rx = e.reactions || {};
     const cms = Object.entries(e.comments || {}).filter(([,c]) => c).map(([cid,c]) => ({cid, ...c})).sort((a,b) => (a.at||0)-(b.at||0));
-    const s0 = (date && occStart(S.events[id], date)) || S.events[id].date, d = parse(s0), dur = evDur(e);
-    return `<div class="m-h"><span class="big">${h(e.emoji||'📌')}</span><div><h2>${h(e.title)}</h2></div>${closeBtn}</div>
+    const s0 = (date && occStart(e0, date)) || e0.date, d = parse(s0), dur = evDur(e);
+    return `<div class="m-h"><span class="big">${h(e.emoji||'📌')}</span><div><h2>${h(e.title)}</h2>${S.mine && S.mine[id] ? '<p class="muted small" style="margin:4px 0 0">🔒 나만 보는 일정이에요</p>' : ''}</div>${closeBtn}</div>
       <div class="meta">
         <div><span class="k">날짜</span>${fmtMD(d)}${dur ? ` ~ ${fmtMD(addDays(d, dur))} <span class="tag">${dur}박 ${dur+1}일</span>` : ''}${e.repeat && e.repeat!=='none' ? `<span class="tag">${repeatLabel(e)}</span>` : ''}</div>
         <div><span class="k">시간</span>${fmtTime(e.time)}</div>
@@ -1793,7 +1801,8 @@ const MODALS = {
   },
 
   evEdit({id, date}){
-    const e = id ? S.events[id] || {} : {};
+    const e = id ? evGet(id) || {} : {};
+    const priv = id ? !!(S.mine && S.mine[id]) : false;
     const mems = id ? (e.members || []) : [ME].filter(Boolean);
     const emo = e.emoji || '📌';
     return `<div class="m-h compact"><h2>${id ? '일정 수정' : '새 일정'}</h2>${closeBtn}</div>
@@ -1815,6 +1824,7 @@ const MODALS = {
         </div>`; })()}
       <div class="fld"><span>누구 일정이에요? <em>(여러 명 가능)</em></span><div class="picks" id="f-mems">${members().map(m => `<button type="button" class="pick ${mems.includes(m.id)?'on':''}" style="--c:${safeColor(m.color)}" data-act="toggle-pick" data-id="${m.id}" aria-pressed="${mems.includes(m.id)}">${av(m,'sm')}${h(m.title)}</button>`).join('')}</div></div>
       <label class="fld"><span>메모</span><textarea id="f-memo" rows="2" maxlength="300" placeholder="준비물, 장소 등">${h(e.memo||'')}</textarea></label>
+      <div class="fld"><span>누가 볼 수 있어요?</span><div class="seg" id="f-vis">${[['fam','👨‍👩‍👧‍👦 가족 모두'],['me','🔒 나만 보기']].map(([k,l]) => `<button type="button" class="${(priv ? 'me' : 'fam') === k ? 'on' : ''}" data-act="seg-pick" data-v="${k}">${l}</button>`).join('')}</div></div>
       <div class="m-foot">${id ? `<button class="btn danger left" data-act="del-ev" data-id="${h(id)}">${e.repeat && e.repeat!=='none' ? '반복 일정 전체 삭제' : '삭제'}</button>` : ''}<button class="btn" data-act="close">취소</button><button class="btn pri" data-act="save-ev">저장</button></div>`;
   },
 
@@ -1905,7 +1915,7 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = fals
 const SWITCH_PW_HASH = '';  // 로그인 방식으로 바뀌어 더 이상 쓰지 않음 (역할 = 로그인 계정)
 function setMe(id){ ME = id; ls.set('tmh_me', ME); Push.syncMember(); state.modal = null; render(); toast(`${mem(ME).title}(으)로 들어왔어요 👋`); }
 /* 이 날만 변경 기록 → 서버가 가족에게 알림 */
-function logChange(c){ Store.set('changes', uid(), {...c, time: c.time || '', to: c.to || '', skip: !!c.skip, restore: !!c.restore, moved: !!c.moved, by: ME, at: Date.now()}); }
+function logChange(c){ if(c.kind !== 'anniv' && S.mine && S.mine[c.refId]) return; Store.set('changes', uid(), {...c, time: c.time || '', to: c.to || '', skip: !!c.skip, restore: !!c.restore, moved: !!c.moved, by: ME, at: Date.now()}); }
 function needMe(){ if(ME && DEFAULT_MEMBERS[ME]) return true; openModal({kind:'who'}); return false; }
 function arm(btn, text){ if(btn.dataset.armed) return true; btn.dataset.armed = '1'; btn.classList.add('armed'); btn.textContent = text || '정말 지울까요?'; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.armed; btn.classList.remove('armed'); btn.textContent = btn.dataset.orig || '삭제'; } }, 3500); return false; }
 
@@ -1994,38 +2004,40 @@ const ACTIONS = {
     if(until && until < date){ toast('반복 끝나는 날이 시작하는 날보다 빨라요'); return; }
     let days = repv === 'weekly' ? $$('#f-days .dp.on').map(b => Number(b.dataset.v)) : [];
     if(repv === 'weekly' && !days.length) days = [parse(date).getDay()];
-    const data = {title, date, days, until, endDate: end && end > date ? end : '', emoji: (state.modal.id && S.events[state.modal.id]?.emoji) || '', time:$('#f-time').value || '', members:ms, repeat:$('#f-rep').value, memo:$('#f-memo').value.trim()};
-    const id = state.modal.id;
-    if(id) Store.update('events', id, data);
-    else Store.set('events', uid(), {...data, createdBy:ME, at:Date.now(), reactions:{}, comments:{}});
+    const data = {title, date, days, until, endDate: end && end > date ? end : '', emoji: (state.modal.id && evGet(state.modal.id)?.emoji) || '', time:$('#f-time').value || '', members:ms, repeat:$('#f-rep').value, memo:$('#f-memo').value.trim()};
+    const id = state.modal.id, priv = $('#f-vis .on')?.dataset.v === 'me', coll = priv ? 'mine' : 'events';
+    const own = priv ? {owner: Store.user ? Store.user.uid : ''} : {};
+    if(id && evColl(id) === coll) Store.update(coll, id, {...data, ...own});
+    else if(id){ const old = evColl(id); Store.set(coll, id, {...evGet(id), ...data, ...own}); Store.del(old, id); }   // 공개 ↔ 나만 보기 바꾸면 옮겨 담기
+    else Store.set(coll, uid(), {...data, ...own, createdBy:ME, at:Date.now(), reactions:{}, comments:{}});
     state.sel = date; const d = parse(date); state.month = new Date(d.getFullYear(), d.getMonth(), 1);
     state.modal = id ? {kind:'ev', id, date, live:true} : {kind:'day', date, live:true};
-    render(); toast(id ? '고쳤어요' : '일정을 붙였어요 📌');
+    render(); toast(id ? '고쳤어요' : priv ? '나만 보는 일정을 붙였어요 🔒' : '일정을 붙였어요 📌');
   },
   'ev-x'(el){
-    const e = S.events[el.dataset.id]; if(!e) return;
+    const e = evGet(el.dataset.id); if(!e) return;
     if(!el.dataset.armed){
       el.dataset.armed = '1'; el.classList.add('armed');
       el.textContent = e.repeat && e.repeat !== 'none' ? '반복 전체 삭제?' : '삭제?';
       setTimeout(() => { if(el.isConnected){ delete el.dataset.armed; el.classList.remove('armed'); el.textContent = '✕'; } }, 3500);
       return;
     }
-    Store.del('events', el.dataset.id); toast('일정을 지웠어요');
+    Store.del(evColl(el.dataset.id), el.dataset.id); toast('일정을 지웠어요');
   },
-  'del-ev'(el){ el.dataset.orig = el.textContent; if(!arm(el)) return; Store.del('events', el.dataset.id); state.modal = null; render(); toast('일정을 지웠어요'); },
+  'del-ev'(el){ el.dataset.orig = el.textContent; if(!arm(el)) return; Store.del(evColl(el.dataset.id), el.dataset.id); state.modal = null; render(); toast('일정을 지웠어요'); },
   react(el){
     if(!needMe()) return;
-    const e = S.events[el.dataset.id]; if(!e) return;
+    const e = evGet(el.dataset.id); if(!e) return;
     const emo = el.dataset.v; const on = !!(e.reactions && e.reactions[emo] && e.reactions[emo][ME]);
-    Store.update('events', el.dataset.id, {reactions:{[emo]:{[ME]: on ? null : true}}});
+    Store.update(evColl(el.dataset.id), el.dataset.id, {reactions:{[emo]:{[ME]: on ? null : true}}});
   },
   'cm-add'(el){
     if(!needMe()) return;
     const inp = $('#cm-text'); const text = inp.value.trim(); if(!text) return;
-    Store.update('events', el.dataset.id, {comments:{[uid()]:{by:ME, text, at:Date.now()}}});
+    Store.update(evColl(el.dataset.id), el.dataset.id, {comments:{[uid()]:{by:ME, text, at:Date.now()}}});
     inp.value = ''; inp.focus();
   },
-  'cm-del'(el){ const c = S.events[el.dataset.id]?.comments?.[el.dataset.v]; if(!c || c.by !== ME) return; Store.update('events', el.dataset.id, {comments:{[el.dataset.v]: null}}); },
+  'cm-del'(el){ const c = evGet(el.dataset.id)?.comments?.[el.dataset.v]; if(!c || c.by !== ME) return; Store.update(evColl(el.dataset.id), el.dataset.id, {comments:{[el.dataset.v]: null}}); },
 
   nc(el){ state.noteColor = el.dataset.v; ls.set('tmh_nc', state.noteColor); renderModal(); },
   'nb-add'(){
@@ -2106,7 +2118,7 @@ const ACTIONS = {
   'new-an'(){ openModal({kind:'anEdit'}); },
   'occ-edit'(el){ openModal({kind:'occ', k:el.dataset.k, id:el.dataset.id, date:el.dataset.date}); },
   'occ-save'(){
-    const {k, id, date} = state.modal, coll = k === 'anniv' ? 'anniv' : 'events', base = S[coll][id]; if(!base) return;
+    const {k, id, date} = state.modal, coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base) return;
     const title = $('#occ-title').value.trim(), time = $('#occ-time').value || '', to = $('#occ-date').value || date;
     if(!title){ toast('제목을 적어주세요'); return; }
     const baseTitle = k === 'anniv' ? annTitle(base) : base.title;
@@ -2134,7 +2146,7 @@ const ACTIONS = {
   },
   'occ-skip'(el){
     el.dataset.orig = el.textContent; if(!arm(el, '정말 이번만 취소?')) return;
-    const {k, id, date} = state.modal, coll = k === 'anniv' ? 'anniv' : 'events', base = S[coll][id]; if(!base) return;
+    const {k, id, date} = state.modal, coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base) return;
     const cur = exOf(base, date) || {};
     const patch = cur.add ? {[date]: null, [cur.from]: {skip:true}} : {[date]: {skip:true}};
     Store.update(coll, id, {ex: patch});
@@ -2142,7 +2154,7 @@ const ACTIONS = {
     state.modal = {kind:'day', date, live:true}; render(); toast('이번만 취소했어요');
   },
   'occ-restore'(el){
-    const {k, id, date} = el.dataset, coll = k === 'anniv' ? 'anniv' : 'events', base = S[coll][id]; if(!base) return;
+    const {k, id, date} = el.dataset, coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base) return;
     const cur = exOf(base, date) || {};
     const patch = {[date]: null}; if(cur.moved) patch[cur.moved] = null;   // 옮긴 것도 원래대로
     Store.update(coll, id, {ex: patch});
@@ -2656,7 +2668,7 @@ function goTo(g){
   if(!g || !g.type) return;
   if(g.type === 'event'){
     state.tab = 'cal';
-    const ds = g.date || S.events[g.id]?.date;
+    const ds = g.date || evGet(g.id)?.date;
     if(ds){ const d = parse(ds); state.month = new Date(d.getFullYear(), d.getMonth(), 1); state.sel = ds; }
     state.modal = {kind:'ev', id:g.id, date:ds, live:true};
     render();
