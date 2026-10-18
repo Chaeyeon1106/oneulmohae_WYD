@@ -1,4 +1,5 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { logger } = require("firebase-functions");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -144,5 +145,97 @@ exports.onFamilyPhotoCreated = onDocumentCreated(
       id,
       tag: `photo-${id}`,
     });
+  }
+);
+
+// 앱이 보내는 가족 알림 (일정 날짜 변경·삭제, 반응·댓글·찬성, 오늘 저녁): 보내고 나면 지워요
+exports.onFamilyPing = onDocumentCreated(
+  { document: "families/{fam}/pings/{id}", region: REGION },
+  async (event) => {
+    const p = event.data?.data();
+    if (!p) return;
+    const { fam, id } = event.params;
+    await notifyFamily(fam, p.by, {
+      title: String(p.title || "오늘모해?").slice(0, 80),
+      body: String(p.body || "").slice(0, 120),
+      type: String(p.type || ""),
+      id: String(p.ref || ""),
+      date: String(p.date || ""),
+      tag: String(p.tag || `ping-${id}`),
+    });
+    await event.data.ref.delete();
+  }
+);
+
+// 매일 자정(한국 시간): 오늘이 생일·기념일·가족 고정 일정이면 가족 모두에게 알림
+const pad2 = (n) => String(n).padStart(2, "0");
+const isLeap = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+// 앱(index.html)의 annOccurs와 같은 규칙
+function annOccurs(a, y, m, d, wd, ds) {
+  const ex = a.ex && a.ex[ds];
+  if (a.kind === "family") {
+    if (ex && ex.skip) return false;
+    if (ex && ex.add) return true; // 다른 날에서 옮겨 옴
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    if (a.rule === "weekly") return wd === Number(a.wday);
+    if (a.rule === "mday") return d === Math.min(Number(a.mday) || 1, last);
+    if (a.rule === "nth") {
+      if (wd !== Number(a.wday)) return false;
+      return Number(a.nth) === -1 ? d + 7 > last : Math.ceil(d / 7) === Number(a.nth);
+    }
+  }
+  let day = Number(a.day);
+  if (Number(a.month) === 2 && day === 29 && !isLeap(y)) day = 28;
+  return Number(a.month) === m && day === d;
+}
+// 앱의 annHost와 같은 규칙: hostRot 순서대로 hostStart 달부터 한 달씩
+function annHostId(a, ds) {
+  const rot = Array.isArray(a.hostRot) ? a.hostRot : [];
+  if (!rot.length || !a.hostStart) return null;
+  const ex = a.ex && a.ex[ds];
+  const [y, m] = String(ex && ex.add ? ex.from : ds).split("-").map(Number);
+  const [sy, sm] = String(a.hostStart).split("-").map(Number);
+  const i = (y * 12 + m - 1) - (sy * 12 + sm - 1);
+  return rot[((i % rot.length) + rot.length) % rot.length];
+}
+function fmtTime(t) {
+  if (!t) return "";
+  const [H, M] = t.split(":").map(Number);
+  return `${H < 12 ? "오전" : "오후"} ${H % 12 || 12}:${pad2(M)}`;
+}
+
+exports.annivMidnight = onSchedule(
+  { schedule: "0 0 * * *", timeZone: "Asia/Seoul", region: REGION },
+  async () => {
+    const k = new Date(Date.now() + 9 * 3600e3); // 한국 날짜
+    const y = k.getUTCFullYear(), m = k.getUTCMonth() + 1, d = k.getUTCDate(), wd = k.getUTCDay();
+    const ds = `${y}-${pad2(m)}-${pad2(d)}`;
+    const fams = await db.collection("families").listDocuments();
+    for (const famRef of fams) {
+      const fam = famRef.id;
+      const snap = await famRef.collection("anniv").get();
+      for (const doc of snap.docs) {
+        const a = doc.data();
+        if (!annOccurs(a, y, m, d, wd, ds)) continue;
+        const ex = (a.ex && a.ex[ds]) || {};
+        const who = a.memberId ? await memberTitle(fam, a.memberId) : "";
+        const yr = Number(a.year);
+        let title, body = "";
+        if (a.kind === "family") {
+          const host = annHostId(a, ds);
+          title = `🍽️ 오늘은 ${ex.title || a.title || "가족 고정 일정"}이에요`;
+          body = [fmtTime(ex.time ?? a.time), host ? `주최 ${await memberTitle(fam, host)}` : ""].filter(Boolean).join(" · ");
+        } else if (a.kind === "birthday") {
+          title = `🎂 오늘은 ${a.title || (who ? who + " 생일" : "생일")}이에요!`;
+          body = yr > 1900 ? `만 ${y - yr}세 생일 축하해요 🎉` : "생일 축하해요 🎉";
+        } else if (a.kind === "anniv") {
+          title = `💍 오늘은 ${a.title || "기념일"}이에요`;
+          body = yr > 1900 ? `${y - yr}주년이에요` : "";
+        } else {
+          title = `⭐ 오늘은 ${a.title || "기념일"}이에요`;
+        }
+        await notifyFamily(fam, null, { title, body, type: "day", id: doc.id, date: ds, tag: `anniv-${doc.id}-${ds}` });
+      }
+    }
   }
 );

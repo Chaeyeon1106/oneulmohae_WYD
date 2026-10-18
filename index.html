@@ -1927,6 +1927,13 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = fals
 const SWITCH_PW_HASH = '';  // 로그인 방식으로 바뀌어 더 이상 쓰지 않음 (역할 = 로그인 계정)
 function setMe(id){ ME = id; ls.set('tmh_me', ME); Push.syncMember(); state.modal = null; render(); toast(`${mem(ME).title}(으)로 들어왔어요 👋`); }
 /* 이 날만 변경 기록 → 서버가 가족에게 알림 */
+/* 가족 알림: pings에 남기면 서버(onFamilyPing)가 나를 뺀 가족에게 알림을 보내고 지워요 */
+function ping(title, body, go = {}){
+  if(Store.mode !== 'live' || !ME) return;
+  Store.set('pings', uid(), {by: ME, title, body: String(body || '').slice(0, 120), type: go.type || '', ref: go.id || '', date: go.date || '', tag: go.tag || '', at: Date.now()});
+}
+const meT = () => mem(ME)?.title || '가족';
+const evPing = (e, id, date) => ({type:'event', id, date: date || e.date || ''});
 /* 반복 일정의 한 회차만 빼기 (되돌리기 가능). 옮겨 온 회차면 원래 날짜를 뺌 */
 function skipOcc(k, id, date){
   const coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base || !date) return false;
@@ -2028,6 +2035,9 @@ const ACTIONS = {
     const data = {title, date, days, until, endDate: end && end > date ? end : '', emoji: (state.modal.id && evGet(state.modal.id)?.emoji) || '', time:$('#f-time').value || '', members:ms, repeat:$('#f-rep').value, memo:$('#f-memo').value.trim()};
     const id = state.modal.id, priv = $('#f-vis .on')?.dataset.v === 'me', coll = priv ? 'mine' : 'events';
     const own = priv ? {owner: Store.user ? Store.user.uid : ''} : {};
+    const prev = id ? evGet(id) : null;
+    if(id && !priv && evColl(id) === 'events' && prev && prev.date !== date)
+      ping(`📅 ${meT()}님이 일정 날짜를 바꿨어요`, `${title} · ${Number(prev.date.slice(5,7))}/${Number(prev.date.slice(8))} → ${Number(date.slice(5,7))}/${Number(date.slice(8))}(${WD[parse(date).getDay()]})`, evPing(data, id, date));
     if(id && evColl(id) === coll) Store.update(coll, id, {...data, ...own});
     else if(id){ const old = evColl(id); Store.set(coll, id, {...evGet(id), ...data, ...own}); Store.del(old, id); }   // 공개 ↔ 나만 보기 바꾸면 옮겨 담기
     else Store.set(coll, uid(), {...data, ...own, createdBy:ME, at:Date.now(), reactions:{}, comments:{}});
@@ -2044,19 +2054,26 @@ const ACTIONS = {
       return;
     }
     if(e.repeat && e.repeat !== 'none'){ skipOcc('event', el.dataset.id, el.dataset.date); toast('이 날만 지웠어요 (반복은 그대로)'); return; }   // 반복 전체 삭제는 '전체 수정'에서
+    if(evColl(el.dataset.id) === 'events') ping(`🗑 ${meT()}님이 일정을 지웠어요`, `${e.title} · ${fmtMD(parse(e.date))}`, {type:'day', date:e.date});
     Store.del(evColl(el.dataset.id), el.dataset.id); toast('일정을 지웠어요');
   },
-  'del-ev'(el){ el.dataset.orig = el.textContent; if(!arm(el)) return; Store.del(evColl(el.dataset.id), el.dataset.id); state.modal = null; render(); toast('일정을 지웠어요'); },
+  'del-ev'(el){ el.dataset.orig = el.textContent; if(!arm(el)) return;
+    const e = evGet(el.dataset.id);
+    if(e && evColl(el.dataset.id) === 'events') ping(`🗑 ${meT()}님이 ${e.repeat && e.repeat !== 'none' ? '반복 일정을 모두' : '일정을'} 지웠어요`, `${e.title} · ${fmtMD(parse(e.date))}`, {type:'day', date:e.date});
+    Store.del(evColl(el.dataset.id), el.dataset.id); state.modal = null; render(); toast('일정을 지웠어요'); },
   react(el){
     if(!needMe()) return;
     const e = evGet(el.dataset.id); if(!e) return;
     const emo = el.dataset.v; const on = !!(e.reactions && e.reactions[emo] && e.reactions[emo][ME]);
     Store.update(evColl(el.dataset.id), el.dataset.id, {reactions:{[emo]:{[ME]: on ? null : true}}});
+    if(!on && evColl(el.dataset.id) === 'events') ping(`${emo} ${meT()}님이 일정에 반응했어요`, e.title, evPing(e, el.dataset.id, state.modal?.date));
   },
   'cm-add'(el){
     if(!needMe()) return;
     const inp = $('#cm-text'); const text = inp.value.trim(); if(!text) return;
     Store.update(evColl(el.dataset.id), el.dataset.id, {comments:{[uid()]:{by:ME, text, at:Date.now()}}});
+    const e = evGet(el.dataset.id);
+    if(e && evColl(el.dataset.id) === 'events') ping(`💬 ${meT()}님이 '${e.title}'에 댓글을 달았어요`, text, evPing(e, el.dataset.id, state.modal?.date));
     inp.value = ''; inp.focus();
   },
   'cm-del'(el){ const c = evGet(el.dataset.id)?.comments?.[el.dataset.v]; if(!c || c.by !== ME) return; Store.update(evColl(el.dataset.id), el.dataset.id, {comments:{[el.dataset.v]: null}}); },
@@ -2109,13 +2126,16 @@ const ACTIONS = {
   'ph-like'(el){
     if(!needMe()) return;
     const p = S.photos[el.dataset.id]; if(!p) return;
-    Store.update('photos', el.dataset.id, {likes:{[ME]: p.likes && p.likes[ME] ? null : true}});
+    const on = !!(p.likes && p.likes[ME]);
+    Store.update('photos', el.dataset.id, {likes:{[ME]: on ? null : true}});
+    if(!on) ping(`❤️ ${meT()}님이 사진을 좋아해요`, p.text || '냉장고 사진', {type:'photo', id:el.dataset.id});
   },
   'ph-cm'(el){ openModal({kind:'phc', id:el.dataset.id, live:true}); },
   'phc-add'(el){
     if(!needMe()) return;
     const inp = $('#phc-text'), text = inp.value.trim(); if(!text) return;
     Store.update('photos', el.dataset.id, {comments:{[uid()]:{by:ME, text, at:Date.now()}}});
+    ping(`💬 ${meT()}님이 사진에 댓글을 달았어요`, text, {type:'photo', id:el.dataset.id});
     inp.value = ''; inp.focus();
   },
   'phc-del'(el){ const c = S.photos[el.dataset.id]?.comments?.[el.dataset.v]; if(!c || c.by !== ME) return; Store.update('photos', el.dataset.id, {comments:{[el.dataset.v]: null}}); },
@@ -2133,7 +2153,9 @@ const ACTIONS = {
   'nb-like'(el){
     if(!needMe()) return;
     const n = S.notes[el.dataset.id]; if(!n) return;
-    Store.update('notes', el.dataset.id, {likes:{[ME]: n.likes && n.likes[ME] ? null : true}});
+    const on = !!(n.likes && n.likes[ME]);
+    Store.update('notes', el.dataset.id, {likes:{[ME]: on ? null : true}});
+    if(!on) ping(n.kind === 'suggest' ? `🙋 ${meT()}님이 제안에 찬성했어요` : `❤️ ${meT()}님이 메모를 좋아해요`, n.text, {type: n.kind === 'suggest' ? 'suggest' : 'memo', id:el.dataset.id});
   },
   'nb-del'(el){ const n = S.notes[el.dataset.id]; if(!n || n.by !== ME) return; el.dataset.orig = '떼기'; if(!arm(el, '정말 뗄까요?')) return; Store.del('notes', el.dataset.id); toast('메모를 뗐어요'); },
 
@@ -2225,6 +2247,7 @@ const ACTIONS = {
     const id = el.dataset.id, ts = ymd(today()), v = el.dataset.v;
     const w = S.wake[id]; const cur = w && w.forDate === ts ? w.dinner : '';
     Store.set('wake', id, {forDate:ts, dinner: cur === v ? '' : v, at:Date.now()});
+    if(cur !== v) ping(v === 'home' ? `🍚 ${meT()}님은 오늘 저녁 집에서 먹어요` : `🍜 ${meT()}님은 오늘 저녁 먹고 와요`, '', {type:'dinner', tag:`dinner-${ME}-${ts}`});
   },
 
   'new-ch'(){ openModal({kind:'chEdit'}); },
@@ -2711,6 +2734,9 @@ function goTo(g){
   } else if(g.type === 'photo'){
     state.tab = 'board'; state.fridgeOpen = true; state.modal = null; render();
     setTimeout(() => document.getElementById('ph-' + g.id)?.scrollIntoView({behavior:'smooth', block:'start'}), 250);
+  } else if(g.type === 'dinner'){
+    state.tab = 'home'; state.modal = null; render();
+    setTimeout(() => $('.wk2')?.closest('.card')?.scrollIntoView({behavior:'smooth', block:'start'}), 250);
   } else if(g.type === 'praise'){
     state.tab = 'home'; state.modal = null; render();
     setTimeout(() => $('.praises')?.closest('.card')?.scrollIntoView({behavior:'smooth', block:'start'}), 250);
