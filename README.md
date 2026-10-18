@@ -10,7 +10,7 @@
 | 파일 | 내용 |
 |---|---|
 | `index.html` | 앱 전체 (화면·디자인·기능) |
-| `functions/index.js` | 알림 서버 (일정·메모·제안·칭찬·날짜 변경) |
+| `functions/index.js` | 알림 서버 (일정·메모·제안·칭찬·사진·날짜 변경, 앱이 보내는 pings, 매일 자정 기념일) |
 | `firestore.rules` | 보안 규칙 |
 | `firebase-messaging-sw.js` | 푸시 알림 수신 + 알림 누르면 해당 화면으로 |
 | `manifest.json`, `images/` | 홈 화면 앱 설정·아이콘 |
