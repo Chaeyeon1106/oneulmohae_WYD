@@ -1439,7 +1439,7 @@ function evCard(e, ds){
     <span class="ev-time">${e.time ? h(e.time) : '종일'}</span>
     <span class="ev-who">${avs(e.members)}</span>
     <span class="ev-body"><b>${h(lockT(e))}</b>${(e.repeat && e.repeat !== 'none') || extra || span ? `<small>${span ? `<span class="tag" style="margin-left:0">${span}</span> ` : ''}${e.repeat && e.repeat !== 'none' ? `<span class="tag" style="margin-left:0">${repeatLabel(e)}</span> ` : ''}${extra}</small>` : ''}</span>
-    <button class="ev-x" data-act="ev-x" data-id="${h(e.id)}" aria-label="${h(e.title)} 삭제">✕</button>
+    <button class="ev-x" data-act="ev-x" data-id="${h(e.id)}" data-date="${h(ds ? occStart(e, ds) || ds : e.date)}" aria-label="${h(e.title)} 삭제">✕</button>
   </div>`;
 }
 
@@ -1809,7 +1809,7 @@ const MODALS = {
       <h3 style="font-size:17px;margin-bottom:10px">댓글 ${cms.length || ''}</h3>
       <div class="cms">${cms.map(c => { const m = mem(c.by); return `<div class="cm">${av(m)}<div class="bub"><b>${h(m ? m.title : '누군가')}</b><time>${ago(c.at||Date.now())}</time>${c.by===ME ? ` <button class="btn ghost sm" style="padding:0 6px;font-size:12px" data-act="cm-del" data-id="${h(id)}" data-v="${h(c.cid)}">지우기</button>` : ''}<p>${h(c.text)}</p></div></div>`; }).join('') || '<p class="muted small" style="margin:0">첫 댓글을 남겨보세요.</p>'}</div>
       <div class="cm-in"><input type="text" id="cm-text" data-draft maxlength="200" placeholder="댓글 달기" aria-label="댓글"><button class="btn pri" data-act="cm-add" data-id="${h(id)}">등록</button></div>
-      <div class="m-foot" style="margin-top:18px">${e.repeat && e.repeat !== 'none' ? `<button class="btn pri" data-act="occ-edit" data-k="event" data-id="${h(id)}" data-date="${s0}">✎ 이 날만 수정</button><button class="btn" data-act="edit-ev" data-id="${h(id)}">전체 수정</button>` : `<button class="btn" data-act="edit-ev" data-id="${h(id)}">✎ 일정 수정</button>`}</div>`;
+      <div class="m-foot" style="margin-top:18px">${e.repeat && e.repeat !== 'none' ? `<button class="btn danger left" data-act="occ-del" data-k="event" data-id="${h(id)}" data-date="${s0}">이 날만 삭제</button><button class="btn pri" data-act="occ-edit" data-k="event" data-id="${h(id)}" data-date="${s0}">✎ 이 날만 수정</button><button class="btn" data-act="edit-ev" data-id="${h(id)}">전체 수정</button>` : `<button class="btn" data-act="edit-ev" data-id="${h(id)}">✎ 일정 수정</button>`}</div>`;
   },
 
   evEdit({id, date}){
@@ -1927,6 +1927,15 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = fals
 const SWITCH_PW_HASH = '';  // 로그인 방식으로 바뀌어 더 이상 쓰지 않음 (역할 = 로그인 계정)
 function setMe(id){ ME = id; ls.set('tmh_me', ME); Push.syncMember(); state.modal = null; render(); toast(`${mem(ME).title}(으)로 들어왔어요 👋`); }
 /* 이 날만 변경 기록 → 서버가 가족에게 알림 */
+/* 반복 일정의 한 회차만 빼기 (되돌리기 가능). 옮겨 온 회차면 원래 날짜를 뺌 */
+function skipOcc(k, id, date){
+  const coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base || !date) return false;
+  const cur = exOf(base, date) || {};
+  const patch = cur.add ? {[date]: null, [cur.from]: {skip:true}} : {[date]: {skip:true}};
+  Store.update(coll, id, {ex: patch});
+  logChange({kind:k, refId:id, date: cur.add ? cur.from : date, title: k === 'anniv' ? annTitle(base) : base.title, skip:true});
+  return true;
+}
 function logChange(c){ if(c.kind !== 'anniv' && S.mine && S.mine[c.refId]) return; Store.set('changes', uid(), {...c, time: c.time || '', to: c.to || '', skip: !!c.skip, restore: !!c.restore, moved: !!c.moved, by: ME, at: Date.now()}); }
 function needMe(){ if(ME && DEFAULT_MEMBERS[ME]) return true; openModal({kind:'who'}); return false; }
 function arm(btn, text){ if(btn.dataset.armed) return true; btn.dataset.armed = '1'; btn.classList.add('armed'); btn.textContent = text || '정말 지울까요?'; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.armed; btn.classList.remove('armed'); btn.textContent = btn.dataset.orig || '삭제'; } }, 3500); return false; }
@@ -2030,10 +2039,11 @@ const ACTIONS = {
     const e = evGet(el.dataset.id); if(!e) return;
     if(!el.dataset.armed){
       el.dataset.armed = '1'; el.classList.add('armed');
-      el.textContent = e.repeat && e.repeat !== 'none' ? '반복 전체 삭제?' : '삭제?';
+      el.textContent = e.repeat && e.repeat !== 'none' ? '이 날만 삭제?' : '삭제?';
       setTimeout(() => { if(el.isConnected){ delete el.dataset.armed; el.classList.remove('armed'); el.textContent = '✕'; } }, 3500);
       return;
     }
+    if(e.repeat && e.repeat !== 'none'){ skipOcc('event', el.dataset.id, el.dataset.date); toast('이 날만 지웠어요 (반복은 그대로)'); return; }   // 반복 전체 삭제는 '전체 수정'에서
     Store.del(evColl(el.dataset.id), el.dataset.id); toast('일정을 지웠어요');
   },
   'del-ev'(el){ el.dataset.orig = el.textContent; if(!arm(el)) return; Store.del(evColl(el.dataset.id), el.dataset.id); state.modal = null; render(); toast('일정을 지웠어요'); },
@@ -2158,12 +2168,13 @@ const ACTIONS = {
   },
   'occ-skip'(el){
     el.dataset.orig = el.textContent; if(!arm(el, '정말 이번만 취소?')) return;
-    const {k, id, date} = state.modal, coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base) return;
-    const cur = exOf(base, date) || {};
-    const patch = cur.add ? {[date]: null, [cur.from]: {skip:true}} : {[date]: {skip:true}};
-    Store.update(coll, id, {ex: patch});
-    logChange({kind:k, refId:id, date: cur.add ? cur.from : date, title: k === 'anniv' ? annTitle(base) : base.title, skip:true});
+    const {k, id, date} = state.modal; if(!skipOcc(k, id, date)) return;
     state.modal = {kind:'day', date, live:true}; render(); toast('이번만 취소했어요');
+  },
+  'occ-del'(el){
+    el.dataset.orig = el.textContent; if(!arm(el, '정말 이 날만 삭제?')) return;
+    const {k, id, date} = el.dataset; if(!skipOcc(k, id, date)) return;
+    state.modal = {kind:'day', date, live:true}; render(); toast('이 날만 지웠어요 (반복은 그대로)');
   },
   'occ-restore'(el){
     const {k, id, date} = el.dataset, coll = k === 'anniv' ? 'anniv' : evColl(id), base = S[coll][id]; if(!base) return;
