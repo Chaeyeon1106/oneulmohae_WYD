@@ -952,6 +952,7 @@ const Store = {
     render();
     if(pendingGo){ const g = pendingGo; pendingGo = null; goTo(g); }
     Push.syncMember();
+    Push.refresh().catch(e => console.warn('push', e));
     FamilySong.sync().catch(e => console.warn('song', e));
     seedIfEmpty().catch(e => console.warn('seed', e));
   },
@@ -1620,7 +1621,14 @@ function viewSet(){
       ${(() => { const st = Push.state();
         if(st === 'on') return '<p class="small" style="margin:0 0 12px">🔔 이 기기에서 알림을 받고 있어요.</p><button class="btn danger" data-act="push-off">알림 끄기</button>';
         if(st === 'need-install') return '<p class="small" style="margin:0">아이폰은 <b>홈 화면에 추가한 아이콘</b>으로 앱을 열어야 알림을 켤 수 있어요. (iOS 16.4 이상)<br>사파리 아래 공유 버튼 → 홈 화면에 추가 → 그 아이콘으로 다시 열기</p>';
-        if(st === 'denied') return '<p class="small" style="margin:0">알림이 차단돼 있어요. 폰 설정 → 알림 → 오늘모해? 에서 허용해 주세요.</p>';
+        if(st === 'denied') return `<p class="small" style="margin:0 0 6px"><b>알림이 차단돼 있어요.</b> 아래처럼 허용한 뒤 앱을 다시 열면 돼요.</p>
+          <p class="small" style="margin:0">${isIOS
+            ? '📱 아이폰: 설정 → 알림 → 오늘모해? → 알림 허용 켜기'
+            : /SamsungBrowser/.test(navigator.userAgent)
+              ? '📱 삼성 인터넷: 메뉴(≡) → 설정 → 사이트 및 다운로드 → 알림 → 차단된 목록에서 oneulmohae-family.web.app 허용'
+              : isStandalone
+                ? '📱 홈 화면 앱: 폰 설정 → 애플리케이션 → 오늘모해? → 알림 → 허용'
+                : '📱 크롬: 주소창 왼쪽 아이콘 → 권한(사이트 설정) → 알림 → 허용'}</p>`;
         if(st === 'unsupported') return '<p class="small" style="margin:0">이 브라우저는 알림을 지원하지 않아요.</p>';
         return '<button class="btn pri" data-act="push-on">🔔 알림 켜기</button>'; })()}
     </section>
@@ -2661,6 +2669,13 @@ const Push = {
     if(this.id) await Store.del('pushTokens', this.id);
     this.id = null; ls.set('tmh_push', null);
     try{ const {M, msg} = await this.messaging(); await M.deleteToken(msg); }catch(e){}
+  },
+  // 알림을 차단했다가 다시 허용하면 토큰이 바뀔 수 있어서, 앱을 열 때마다 조용히 다시 연결해요
+  async refresh(){
+    const old = this.id;
+    if(!old || !this.supported() || Notification.permission !== 'granted' || Store.mode !== 'live') return;
+    await this.enable();
+    if(this.id !== old) await Store.del('pushTokens', old);
   },
   // 이 기기 사용자를 바꾸면, 알림도 새 사용자 기준으로 (본인 글 알림 제외용)
   syncMember(){ if(this.id) Store.update('pushTokens', this.id, {member: ME}); }
