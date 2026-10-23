@@ -20,9 +20,10 @@ async function memberTitle(fam, id) {
 
 // 글쓴이를 뺀 나머지 기기로 보내고, 더 이상 쓰이지 않는 토큰은 지워요.
 // notification 필드 없이 data만 보내야 서비스워커에서 한 번만 표시돼요.
-async function notifyFamily(fam, authorId, data) {
+// pick: 받을 사람만 고르는 조건 (없으면 글쓴이 뺀 모두)
+async function notifyFamily(fam, authorId, data, pick = null) {
   const snap = await db.collection(`families/${fam}/pushTokens`).get();
-  const targets = snap.docs.filter((d) => d.data().token && d.data().member !== authorId);
+  const targets = snap.docs.filter((d) => d.data().token && d.data().member !== authorId && (!pick || pick(d.data().member)));
   if (!targets.length) {
     logger.info("알림 받을 기기가 없어요", { fam, authorId });
     return;
@@ -98,13 +99,12 @@ exports.onFamilyPraiseCreated = onDocumentCreated(
     if (!p) return;
     const { fam, id } = event.params;
     const [from, to] = await Promise.all([memberTitle(fam, p.from), memberTitle(fam, p.to)]);
-    await notifyFamily(fam, p.from, {
-      title: `👏 ${from}님이 ${to}님을 칭찬했어요 (+${p.pts || 10}점)`,
-      body: String(p.text || "").slice(0, 120),
-      type: "praise",
-      id,
-      tag: `praise-${id}`,
-    });
+    const base = { body: String(p.text || "").slice(0, 120), type: "praise", id, tag: `praise-${id}` };
+    // 칭찬받은 사람에게는 따로, 나머지 가족에게는 소식으로
+    await Promise.all([
+      notifyFamily(fam, p.from, { ...base, title: `👏 ${from}님이 나를 칭찬했어요! (+${p.pts || 10}점)` }, (m) => m === p.to),
+      notifyFamily(fam, p.from, { ...base, title: `👏 ${from}님이 ${to}님을 칭찬했어요 (+${p.pts || 10}점)` }, (m) => m !== p.to),
+    ]);
   }
 );
 

@@ -1,4 +1,6 @@
-# main 브랜치에 반영되면 Firebase Hosting(https://oneulmohae-family.web.app)과 보안 규칙(firestore.rules)을 자동 배포
+# main 브랜치에 반영되면 Firebase에 자동 배포
+#  - Hosting(https://oneulmohae-family.web.app)과 보안 규칙(firestore.rules): 매번
+#  - 알림 서버(functions/): functions 폴더가 바뀌었을 때만 (손으로 실행하면 항상)
 name: Firebase Hosting 배포
 
 on:
@@ -12,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -24,4 +28,26 @@ jobs:
         run: |
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" npx -y firebase-tools@13.35.1 deploy --only firestore:rules --project oneulmohae-family --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+      - name: 알림 서버가 바뀌었는지 확인
+        id: fn
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || ! git cat-file -e "${{ github.event.before }}" 2>/dev/null \
+             || git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q '^functions/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.fn.outputs.changed == 'true'
+        with:
+          node-version: 22
+      - name: 알림 서버 배포
+        if: steps.fn.outputs.changed == 'true'
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ONEULMOHAE_FAMILY }}
+        run: |
+          npm ci --prefix functions
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" npx -y firebase-tools@13.35.1 deploy --only functions --project oneulmohae-family --non-interactive --force
           rm -f "$RUNNER_TEMP/sa.json"
