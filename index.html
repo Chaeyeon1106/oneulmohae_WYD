@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>오늘모해?</title>
 <meta name="description" content="우리 가족 일정·게시판·기념일·저녁 식사·당번표">
 <link rel="manifest" href="manifest.json">
@@ -61,6 +61,8 @@
 [hidden]{display:none!important}
 img{max-width:100%}
 html{padding-top:env(safe-area-inset-top,0px);background:var(--ground)}
+/* 맨 위 상태 표시줄 자리: 스크롤한 내용이 밑으로 비쳐 흐릿하게(블러) 보이지 않게 바탕색으로 덮어요 */
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--ground);z-index:60;pointer-events:none}
 body{margin:0;min-height:100vh;background:var(--grain), var(--ground);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body.modal-open{overflow:hidden}
 button{font:inherit;color:inherit}
@@ -2405,6 +2407,10 @@ let rzT = 0;
 window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if(state.tab === 'cal' && Store.mode !== 'auth' && !document.documentElement.classList.contains('authmode')){ state.chipN = 0; $('#view').innerHTML = viewCal(); fitCal(); } }, 120); });
 // 달력 좌우로 밀어서 달 넘기기
 let sw = null;
+/* 화면 확대 막기: 두 손가락 확대(아이폰 gesture, 그 밖의 멀티터치). 프로필 사진 자르기 화면은 예외 */
+const zoomOk = e => e.target && e.target.closest && e.target.closest('#crop-view');
+['gesturestart','gesturechange'].forEach(ev => document.addEventListener(ev, e => { if(!zoomOk(e)) e.preventDefault(); }, {passive:false}));
+document.addEventListener('touchmove', e => { if(e.touches.length > 1 && !zoomOk(e)) e.preventDefault(); }, {passive:false});
 document.addEventListener('touchstart', e => { if(state.tab === 'cal' && !state.modal && e.target.closest('.p-grid')) sw = {x:e.touches[0].clientX, y:e.touches[0].clientY}; }, {passive:true});
 document.addEventListener('touchend', e => { if(!sw) return; const dx = e.changedTouches[0].clientX - sw.x, dy = e.changedTouches[0].clientY - sw.y; sw = null; if(Math.abs(dx) > 60 && Math.abs(dy) < 50) goMonth(dx < 0 ? 1 : -1); }, {passive:true});
 // 자정이 지나면 오늘/내일 기준을 다시 그림
