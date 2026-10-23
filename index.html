@@ -291,6 +291,8 @@ textarea{resize:vertical;min-height:70px}
 #f-vis button.on{border-color:var(--ink)}
 .ph-edit{margin-left:auto}
 .ph-edit + .ph-del{margin-left:6px}
+.pr-day{font-family:var(--fk);font-weight:400;font-size:15px;color:var(--ink-2);margin:14px 0 8px}
+.pr-day:first-of-type{margin-top:0}
 .an-more{border:0;background:none;padding:11px 2px 0;cursor:pointer;font-family:var(--fk);font-size:14px;color:var(--ink-2);text-align:left}
 .an-row .e{font-size:22px;width:30px;text-align:center}
 .an-row .b{flex:1;min-width:0}
@@ -1542,8 +1544,16 @@ function viewHome(){
 
   const annsAll = annList().map(a => ({a, ...annInfo(a)})).sort((p,q) => p.dd - q.dd);
   const anns = state.annAll ? annsAll : annsAll.slice(0, 1);   // 처음엔 제일 가까운 것만
-  const praises = praiseList().slice(0, state.praiseAll ? 200 : 6);
-  const total = praiseList().length;
+  // 칭찬은 오늘 것만 펼쳐 두고, 지난 칭찬은 '더 보기'에서 날짜별로
+  const prAll = praiseList(), ts0 = ymd(t);
+  const prToday = prAll.filter(p => ymd(new Date(p.at || 0)) === ts0), prPast = prAll.filter(p => ymd(new Date(p.at || 0)) !== ts0);
+  const prDays = []; prPast.slice(0, 200).forEach(p => { const k = ymd(new Date(p.at || 0)); const g = prDays[prDays.length - 1]; if(g && g.k === k) g.l.push(p); else prDays.push({k, l:[p]}); });
+  const prCard = p => { const f = mem(p.from), to = mem(p.to); return `
+        <article class="pr">
+          <div class="pr-top">${av(f,'sm')}<b>${h(f ? f.title : '누군가')}</b><span class="arr">→</span>${av(to,'sm')}<b>${h(to ? to.title : '누군가')}</b><span class="pr-pt">+${Number(p.pts)||PRAISE_PTS}</span></div>
+          <p>${h(p.text)}</p>
+          <footer><time>${ago(p.at||Date.now())}</time>${p.from === ME ? `<button class="del" data-act="praise-del" data-id="${h(p.id)}">지우기</button>` : ''}</footer>
+        </article>`; };
   const lb = points(state.lb); const maxP = Math.max(1, ...lb.map(x => x.p));
   const medal = ['🥇','🥈','🥉','4'];
 
@@ -1579,14 +1589,10 @@ function viewHome(){
 
     <section class="card span2">
       <div class="sec-h"><h2>칭찬합니다</h2><button class="btn sm pri" data-act="new-praise">+ 칭찬하기</button><p>칭찬 한 번에 ${PRAISE_PTS}점! 칭찬받은 사람에게 점수가 쌓여요.</p></div>
-      ${praises.length ? `<div class="praises">${praises.map(p => { const f = mem(p.from), to = mem(p.to); return `
-        <article class="pr">
-          <div class="pr-top">${av(f,'sm')}<b>${h(f ? f.title : '누군가')}</b><span class="arr">→</span>${av(to,'sm')}<b>${h(to ? to.title : '누군가')}</b><span class="pr-pt">+${Number(p.pts)||PRAISE_PTS}</span></div>
-          <p>${h(p.text)}</p>
-          <footer><time>${ago(p.at||Date.now())}</time>${p.from === ME ? `<button class="del" data-act="praise-del" data-id="${h(p.id)}">지우기</button>` : ''}</footer>
-        </article>`; }).join('')}</div>
-        ${total > 6 ? `<button class="btn sm ghost" style="margin-top:10px" data-act="praise-all">${state.praiseAll ? '접기' : `전체 ${total}개 보기`}</button>` : ''}`
-        : '<p class="empty">오늘 고마웠던 가족을 칭찬해 보세요. 👏</p>'}
+      <h3 class="pr-day">오늘 · ${fmtMD(t)}</h3>
+      ${prToday.length ? `<div class="praises">${prToday.map(prCard).join('')}</div>` : '<p class="empty">오늘은 아직 칭찬이 없어요. 고마웠던 가족을 칭찬해 보세요. 👏</p>'}
+      ${prPast.length ? `<button class="an-more" data-act="praise-all" aria-expanded="${!!state.praiseAll}">${state.praiseAll ? '▴ 지난 칭찬 접기' : `▾ 지난 칭찬 ${prPast.length}개 더 보기`}</button>
+        ${state.praiseAll ? prDays.map(g => `<h3 class="pr-day">${fmtMD(parse(g.k))}</h3><div class="praises">${g.l.map(prCard).join('')}</div>`).join('') : ''}` : ''}
     </section>
 
     <section class="card span2">
