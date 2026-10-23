@@ -289,6 +289,8 @@ textarea{resize:vertical;min-height:70px}
 #f-vis{background:none;padding:0;gap:10px}
 #f-vis button{border:1.5px solid var(--line);padding:9px 14px}
 #f-vis button.on{border-color:var(--ink)}
+.ph-edit{margin-left:auto}
+.ph-edit + .ph-del{margin-left:6px}
 .an-more{border:0;background:none;padding:11px 2px 0;cursor:pointer;font-family:var(--fk);font-size:14px;color:var(--ink-2);text-align:left}
 .an-row .e{font-size:22px;width:30px;text-align:center}
 .an-row .b{flex:1;min-width:0}
@@ -1502,7 +1504,7 @@ function photoCard(p){
   const cms = Object.values(p.comments || {}).filter(Boolean).length;
   const r0 = p.imgs[0], ratio = Math.min(1.25, Math.max(0.52, (r0.h || 1) / (r0.w || 1)));   // 세로 4:5 ~ 가로 1.91:1
   return `<article class="ph-post" id="ph-${h(p.id)}">
-    <header>${av(m,'sm')}<b>${h(m ? m.title : '누군가')}</b><time>${ago(p.at || Date.now())}</time>${p.by === ME ? `<button class="ph-del" data-act="ph-del" data-id="${h(p.id)}">삭제</button>` : ''}</header>
+    <header>${av(m,'sm')}<b>${h(m ? m.title : '누군가')}</b><time>${ago(p.at || Date.now())}</time>${p.by === ME ? `<button class="ph-del ph-edit" data-act="ph-edit" data-id="${h(p.id)}">수정</button><button class="ph-del" data-act="ph-del" data-id="${h(p.id)}">삭제</button>` : ''}</header>
     <div class="ph-car" data-id="${h(p.id)}" style="aspect-ratio:1 / ${ratio.toFixed(3)}">${p.imgs.map((im, i) => `<img src="${h(im.url)}" alt="${h(m ? m.title : '')}의 사진 ${i+1}" loading="${i ? 'lazy' : 'eager'}" draggable="false">`).join('')}</div>
     ${p.imgs.length > 1 ? `<div class="ph-dots" data-for="${h(p.id)}">${p.imgs.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}
     <div class="ph-acts">
@@ -1687,12 +1689,13 @@ const closeBtn = `<button class="icon-btn x" data-act="close" aria-label="닫기
 
 const MODALS = {
   phNew(m){
-    const files = m.files || [];
-    return `<div class="m-h compact"><h2>사진 올리기</h2>${m.busy ? '' : closeBtn}</div>
-      <label class="btn file-lbl ph-pick" ${m.busy ? 'hidden' : ''}>📷 사진 고르기 (최대 10장)<input type="file" id="ph-files" accept="image/*" multiple></label>
-      ${files.length ? `<div class="ph-prev">${files.map((f, i) => `<div class="pp"><img src="${f.prev}" alt=""><button type="button" class="pp-x" data-act="ph-rm" data-v="${i}" aria-label="빼기" ${m.busy ? 'hidden' : ''}>✕</button></div>`).join('')}</div>` : '<p class="muted small" style="margin:10px 0">여러 장 고르면 옆으로 넘겨 보게 올라가요.</p>'}
-      <label class="fld" style="margin-top:12px"><span>한 줄 글 <em>(선택)</em></span><textarea id="ph-text" data-draft rows="2" maxlength="300" placeholder="예) 오늘 수박 개시!"></textarea></label>
-      <div class="m-foot"><button class="btn pri" style="width:100%" data-act="ph-post" ${m.busy || !files.length ? 'disabled' : ''}>${m.busy ? h(m.busy) : '올리기'}</button></div>`;
+    const files = m.files || [], keep = m.keep || [], n = keep.length + files.length;   // keep: 수정할 때 남겨 둘 기존 사진
+    const x = (act, i) => `<button type="button" class="pp-x" data-act="${act}" data-v="${i}" aria-label="빼기" ${m.busy ? 'hidden' : ''}>✕</button>`;
+    return `<div class="m-h compact"><h2>${m.edit ? '사진 게시물 수정' : '사진 올리기'}</h2>${m.busy ? '' : closeBtn}</div>
+      <label class="btn file-lbl ph-pick" ${m.busy || n >= 10 ? 'hidden' : ''}>📷 ${m.edit ? '사진 더 넣기' : '사진 고르기'} (최대 10장)<input type="file" id="ph-files" accept="image/*" multiple></label>
+      ${n ? `<div class="ph-prev">${keep.map((im, i) => `<div class="pp"><img src="${h(im.url)}" alt="">${x('ph-rmk', i)}</div>`).join('')}${files.map((f, i) => `<div class="pp"><img src="${f.prev}" alt="">${x('ph-rm', i)}</div>`).join('')}</div>` : '<p class="muted small" style="margin:10px 0">여러 장 고르면 옆으로 넘겨 보게 올라가요.</p>'}
+      <label class="fld" style="margin-top:12px"><span>한 줄 글 <em>(선택)</em></span><textarea id="ph-text" data-draft rows="2" maxlength="300" placeholder="예) 오늘 수박 개시!">${h(m.text || '')}</textarea></label>
+      <div class="m-foot"><button class="btn pri" style="width:100%" data-act="ph-post" ${m.busy || !n ? 'disabled' : ''}>${m.busy ? h(m.busy) : m.edit ? '저장' : '올리기'}</button></div>`;
   },
   phc({id}){
     const p = S.photos && S.photos[id];
@@ -2108,10 +2111,31 @@ const ACTIONS = {
   },
   'fridge-close'(){ state.fridgeOpen = false; render(); window.scrollTo({top:0}); },
   'ph-new'(){ if(!needMe()) return; openModal({kind:'phNew', files:[]}); },
+  'ph-edit'(el){
+    const p = S.photos[el.dataset.id]; if(!p || p.by !== ME) return;
+    openModal({kind:'phNew', edit:el.dataset.id, keep:[...(p.imgs || [])], files:[], text:p.text || ''});
+  },
+  'ph-rmk'(el){ state.modal.keep.splice(Number(el.dataset.v), 1); renderModal(); },
   'ph-rm'(el){ const m = state.modal; const f = m.files.splice(Number(el.dataset.v), 1)[0]; if(f) URL.revokeObjectURL(f.prev); renderModal(); },
   async 'ph-post'(){
-    const m = state.modal; if(!m || m.busy || !m.files.length) return;
+    const m = state.modal; if(!m || m.busy || !(m.files.length + (m.keep || []).length)) return;
     const text = ($('#ph-text')?.value || '').trim();
+    if(m.edit){   // 수정: 남긴 사진 + 새 사진, 뺀 사진은 저장소에서도 지움
+      const id = m.edit, p = S.photos[id]; if(!p || p.by !== ME) return;
+      try{
+        const imgs = [...m.keep], stamp = Date.now().toString(36);
+        for(let i = 0; i < m.files.length; i++){
+          m.busy = `올리는 중… ${i+1}/${m.files.length}`; renderModal();
+          imgs.push(await Photos.upload(m.files[i].file, id, `${stamp}-${i}`));
+        }
+        await Store.update('photos', id, {text, imgs});
+        const kept = new Set(imgs.map(im => im.url));
+        await Photos.remove({imgs: (p.imgs || []).filter(im => !kept.has(im.url))}).catch(e => console.warn(e));
+        m.files.forEach(f => URL.revokeObjectURL(f.prev));
+        state.modal = null; render(); toast('게시물을 고쳤어요 ✏️');
+      }catch(e){ console.warn(e); m.busy = ''; renderModal(); toast('저장하지 못했어요. 다시 해 주세요'); }
+      return;
+    }
     try{
       const id = uid(), imgs = [];
       for(let i = 0; i < m.files.length; i++){
@@ -2336,7 +2360,7 @@ document.addEventListener('change', async e => {
     return;
   }
   if(t.id === 'ph-files' && state.modal && state.modal.kind === 'phNew'){
-    const m = state.modal, room = 10 - m.files.length;
+    const m = state.modal, room = 10 - m.files.length - (m.keep || []).length;
     [...t.files].filter(f => f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name)).slice(0, room)
       .forEach(f => m.files.push({file: f, prev: URL.createObjectURL(f)}));
     if(t.files.length > room) toast('한 번에 10장까지 올릴 수 있어요');
