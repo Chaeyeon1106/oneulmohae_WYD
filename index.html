@@ -61,7 +61,7 @@
 [hidden]{display:none!important}
 img{max-width:100%}
 html{padding-top:env(safe-area-inset-top,0px);background:var(--ground)}
-body{margin:0;min-height:100vh;background:var(--grain), var(--ground);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;background:var(--grain), var(--ground);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body.modal-open{overflow:hidden}
 button{font:inherit;color:inherit}
 h1,h2,h3{font-family:var(--fk);font-weight:400;margin:0;text-wrap:balance;letter-spacing:-.005em}
@@ -702,11 +702,11 @@ html.fit .tabs{background:color-mix(in srgb, var(--m-ink) 12%, var(--m-bg))}
 .fr-open:hover .grip{filter:brightness(1.08)}
 .fridge::after{display:none}
 /* 냉장고 안 */
-.inside{--in1:#EAF4F7;--in2:#F8FCFD;border-radius:22px;padding:0 12px 24px;min-height:72vh;background:linear-gradient(180deg,var(--in2),var(--in1));box-shadow:inset 0 0 0 1.5px var(--fr-edge), inset 0 30px 40px -30px rgba(255,255,255,.9);animation:inopen .35s ease}
+.inside{--in1:#EAF4F7;--in2:#F8FCFD;border-radius:22px;padding:0 12px 24px;min-height:72vh;background:linear-gradient(180deg,var(--in2),var(--in1));box-shadow:inset 0 0 0 1.5px var(--fr-edge), inset 0 30px 40px -30px rgba(255,255,255,.9);animation:inopen .35s ease;overflow:clip}   /* 둥근 모서리 밖으로 위 띠·사진이 삐져나오지 않게 (clip은 sticky를 안 깨요) */
 :root.force-dark .inside{--in1:#15191C;--in2:#1E2428}
 @media (prefers-color-scheme: dark){:root:not(.force-light) .inside{--in1:#15191C;--in2:#1E2428}}
 @keyframes inopen{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
-.in-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 2px 12px;position:sticky;top:0;z-index:4;background:var(--in2);margin:0 -12px 8px;padding-inline:12px;border-radius:22px 22px 0 0;border-bottom:1px solid var(--fr-edge)}
+.in-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 2px 12px;position:sticky;top:0;z-index:4;background:var(--in2);margin:0 -12px 8px;padding-inline:12px;border-bottom:1px solid var(--fr-edge)}
 .in-top h2{font-size:19px}
 .ph-post{background:var(--paper);border-radius:14px;margin:0 0 18px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.05),0 10px 20px -16px rgba(0,0,0,.4)}
 .ph-post header{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:13.5px}
@@ -716,7 +716,7 @@ html.fit .tabs{background:color-mix(in srgb, var(--m-ink) 12%, var(--m-bg))}
 .ph-del.armed{color:var(--bad)}
 .ph-car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;background:var(--paper-2);width:100%;max-width:100%}
 .ph-car::-webkit-scrollbar{display:none}
-.ph-car img{flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:start;user-select:none;max-width:none}
+.ph-car img{flex:0 0 100%;width:100%;height:100%;object-fit:contain;scroll-snap-align:start;user-select:none;max-width:none}
 .ph-dots{display:flex;justify-content:center;gap:4px;padding:8px 0 0}
 .ph-dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
 .ph-dots i.on{background:var(--m-bg);box-shadow:0 0 0 1px var(--m-ink)}
@@ -1504,7 +1504,7 @@ const photoList = () => Object.entries(S.photos || {}).map(([id, p]) => ({id, ..
 function photoCard(p){
   const m = mem(p.by), likes = Object.entries(p.likes || {}).filter(([,v]) => v).map(([k]) => k), liked = likes.includes(ME);
   const cms = Object.values(p.comments || {}).filter(Boolean).length;
-  const r0 = p.imgs[0], ratio = Math.min(1.25, Math.max(0.52, (r0.h || 1) / (r0.w || 1)));   // 세로 4:5 ~ 가로 1.91:1
+  const r0 = p.imgs[0], ratio = Math.min(1.8, Math.max(0.5, (r0.h || 1) / (r0.w || 1)));   // 사진 비율 그대로 (세로 9:16 ~ 가로 2:1), 잘리거나 확대되지 않게
   return `<article class="ph-post" id="ph-${h(p.id)}">
     <header>${av(m,'sm')}<b>${h(m ? m.title : '누군가')}</b><time>${ago(p.at || Date.now())}</time>${p.by === ME ? `<button class="ph-del ph-edit" data-act="ph-edit" data-id="${h(p.id)}">수정</button><button class="ph-del" data-act="ph-del" data-id="${h(p.id)}">삭제</button>` : ''}</header>
     <div class="ph-car" data-id="${h(p.id)}" style="aspect-ratio:1 / ${ratio.toFixed(3)}">${p.imgs.map((im, i) => `<img src="${h(im.url)}" alt="${h(m ? m.title : '')}의 사진 ${i+1}" loading="${i ? 'lazy' : 'eager'}" draggable="false">`).join('')}</div>
